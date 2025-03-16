@@ -1,0 +1,6 @@
+1: In pydantic, (...) is used to make a field as a required field
+
+2: I am using a binary of uuid as a primary key in users table for reducing space and for speed indexing
+
+3: Casting the bianry to normal uuid (vice versa) while sending the response to the client.
+
