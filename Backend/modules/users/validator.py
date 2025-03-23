@@ -25,4 +25,4 @@ class Auth_Validator:
         
         return True if user else False
     
-    
+

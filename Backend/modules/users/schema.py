@@ -1,7 +1,9 @@
-from pydantic import BaseModel, Field, EmailStr, model_validator, UUID4, StringConstraints,field_validator
+from pydantic import BaseModel, Field, EmailStr, model_validator,StringConstraints,field_validator
 from datetime import date, datetime
 from typing import Optional, Annotated
-import re
+
+
+from shared.generic_validation import Schema_Validation
 
 # Auth Related Schema
 
@@ -12,17 +14,7 @@ class Auth_Request_Schema(BaseModel):
     @field_validator("password")
     @classmethod
     def validate_password(cls, password: str):
-        pattern = r"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&]).{8,20}$"
-        
-        if not re.fullmatch(pattern, password):
-            raise ValueError(
-                "Password must be 8-20 characters long and include at least:\n"
-                "- One uppercase letter\n"
-                "- One lowercase letter\n"
-                "- One digit\n"
-                "- One special character (@$!%*?&)"
-            )
-        return password
+        return Schema_Validation.validate_password(password)
     
     model_config = {
         "frozen": False  # Equivalent to `allow_mutation=True`
@@ -77,12 +69,12 @@ class Profile_Create_Request_Schema(Profile_Schema):
         StringConstraints(pattern=r"^\+?[0-9]{10,15}$")
     ]] = None
     
+    merchant_id : Optional[str] = Field(None, pattern=r"^acc_[a-zA-Z0-9]+$")
+    
     @field_validator("phone_number", mode="before")
     @classmethod
     def strip_phone_number(cls, value):
-        if isinstance(value, str):
-            return value.strip()  
-        return value
+       return Schema_Validation.strip_phone_number(value)
 
 class Profile_Create_Response_Schema(Profile_Create_Request_Schema):
     created_at: datetime = Field(..., description="Profile creation timestamp.")
@@ -133,9 +125,7 @@ class Profile_Update_Request_Schema(BaseModel):
     @model_validator(mode="before")
     @classmethod
     def check_at_least_one_field(cls, data):
-        if not any(data.values()):
-            raise ValueError("At least one field must be provided for update.")
-        return data
+        return Schema_Validation.check_at_least_one_field(data)
 
     
 

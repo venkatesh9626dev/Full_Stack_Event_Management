@@ -11,6 +11,7 @@ from shared import response_schema
 from shared.generic_error_handling import Generic_Error_Handling
 
 from modules.users.controller import users_router
+from modules.events.controller import events_router
 Base.metadata.create_all(bind=engine) # To autocreate SQL Tables
 
 
@@ -51,6 +52,7 @@ class Entry_Middleware(BaseHTTPMiddleware):
 app.add_middleware(Entry_Middleware)
 
 app.include_router(router = users_router , prefix="/users" , tags = ["users"])
+app.include_router(router = events_router , prefix="/events" , tags = ["events"])
 
 
 @app.get("/")

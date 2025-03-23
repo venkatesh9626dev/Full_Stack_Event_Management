@@ -101,20 +101,6 @@ async def update_profile(updated_data : schema.Profile_Update_Request_Schema , u
 # async def get_user_profile():
 #     pass
 
-# Users events route
-
-@users_router.get("/events")
-async def get_events():
-    pass
-
-@users_router.get("/events/created")
-async def get_created_events():
-    pass
-
-@users_router.get("/events/registered")
-async def get_registered_events():
-    pass
-
 # @users_router.get("/{user_id}/events")
 # async def get_user_events():
 #     pass
