@@ -178,3 +178,5 @@ class Profile_Dao:
         except SQLAlchemyError as e:    
             raise e
     
+profile_dao = Profile_Dao()
+auth_dao = Auth_Dao()

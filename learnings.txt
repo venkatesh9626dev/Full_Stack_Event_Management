@@ -4,3 +4,8 @@
 
 3: Casting the bianry to normal uuid (vice versa) while sending the response to the client.
 
+4: Got to know about differnt ways of interacting with database, one is with core sql commands and the other orm based query.
+
+5: Got to know about getattr() of the instance object which provides the value of object's attribute value
+
+6: By learning that getattr(), I get to knew about dynamic selecting of instance object.

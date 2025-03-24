@@ -35,9 +35,9 @@ class Schema_Validation:
         ticket_type = ticket_details.get("ticket_type")
         ticket_fare = ticket_details.get("ticket_fare")
         
-        if generic_enum.Ticket_Type_Enum(ticket_type) == generic_enum.Ticket_Type_Enum.paid and ticket_fare == None:
+        if generic_enum.Ticket_Type_Enum(ticket_type) == generic_enum.Ticket_Type_Enum.PAID and ticket_fare == None:
             raise ValueError("Should provide ticket_fare while providing Paid (Ticket Type)")
-        elif generic_enum.Ticket_Type_Enum(ticket_type) ==generic_enum.Ticket_Type_Enum.free and ticket_fare :
+        elif generic_enum.Ticket_Type_Enum(ticket_type) ==generic_enum.Ticket_Type_Enum.FREE and ticket_fare :
              raise ValueError("Ticket fare is not required when the ticket type is free")
          
         return ticket_details

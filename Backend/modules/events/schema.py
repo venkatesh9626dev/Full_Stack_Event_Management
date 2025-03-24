@@ -68,16 +68,16 @@ class Event_Base_Schema(BaseModel):
     event_description: str = Field(..., min_length=10, max_length=1000, description="Event description must be 10-1000 characters")
     event_image: str = Field(..., pattern=r"^(http|https)://.*\.(jpg|jpeg|png|gif)$", description="Must be a valid image URL")
     event_agenda: str = Field(..., min_length=5, description="Agenda must be at least 5 characters long")
-    event_date: date = Field(..., description="Event date should be in YYYY-MM-DD format")
-    event_start_time: datetime = Field(..., description="Start time must be a valid datetime format")
-    event_end_time: datetime = Field(..., description="End time must be a valid datetime format")
+    event_start_date_time: datetime = Field(..., description="Event date should be in YYYY-MM-DD format")
+    event_end_date_time: datetime = Field(..., description="Start time must be a valid datetime format")
+    
     
     model_config = ConfigDict(str_strip_whitespace=True)
 # create event Request Schema
 
 class Event_Request_Schema(Event_Base_Schema):
     category_name: str = Field(..., min_length=3, max_length=50, description="Category name must be between 3-50 characters")  
-    address : Address_Schema = Field(...)
+    address_details : Address_Schema = Field(...)
     ticket_details : Ticket_Schema = Field(...)
     participant_details : Participant_Schema = Field(...)
     
@@ -110,10 +110,10 @@ class Event_Model_Schema(Event_Base_Schema,Participant_Schema,Ticket_Schema):
 
 class Event_Location_Model_Schema(BaseModel):
     
-    latitude : Decimal = Field(..., decimal_places=6, max_digits=9)
-    longitude : Decimal = Field(..., decimal_places=6, max_digits=9)
+    latitude : float = Field(..., description="Latitude as a floating-point number")
+    longitude : float = Field(..., description="Longitude as a floating-point number")
     
-    full_address : str = Field(... , min_length=3 )
+    full_location : str = Field(... , min_length=3 )
     
     model_config = ConfigDict(str_strip_whitespace=True)
     
@@ -127,12 +127,21 @@ class Event_Category_Model_Schema(Category_Schema):
 class Ticket_Response_Schema(Ticket_Schema):
     available_tickets : int = Field(..., gt=-1)
     
-# Event Response Schema
+# Events Response Schema
 
-class Event_Response_Schema(Event_Base_Schema):
+class Event_Base_Response_Schema(Event_Base_Schema):
+    
     event_id : str = Field(...)
-    register_state : bool = Field(...)
     address : Event_Location_Model_Schema = Field(...)
     ticket_details : Ticket_Response_Schema = Field(...)
     participant_details : Participant_Schema = Field(...)
+    
+class Events_Response_Schema(BaseModel):
+    events_list : List[Event_Base_Response_Schema] = Field(default_factory=list)
+# Event Response Schema
+
+class Event_Response_Schema(Event_Base_Response_Schema):
+    event_id : str = Field(...)
+    register_state : generic_enum.Ticket_Status = Field(...)
+
 
