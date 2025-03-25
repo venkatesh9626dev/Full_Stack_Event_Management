@@ -1,5 +1,5 @@
 from database import SessionLocal
-
+from sqlalchemy.exc import SQLAlchemyError
 class Base_Dao:
     
     session = SessionLocal
@@ -19,13 +19,17 @@ class Base_Dao:
             _type_: Returns the column and value as a dictionary
         """        
 
-        with Base_Dao.session() as db:
+        try:
+            with Base_Dao.session() as db:
             
-            record_object = db.query(self.model).filter(getattr(self.model,field_name) == field_value).first()
+                record_object = db.query(self.model).filter(getattr(self.model,field_name) == field_value).first()
+                
+                return record_object.__dict__ if record_object else None
+        except SQLAlchemyError as e:
             
-            return record_object.__dict__ if record_object else None
+            raise e        
         
-    def fetch_records(self,field_name,field_value):
+    def fetch_records_by_field_name(self,field_name,field_value):
         """ can be used for fetching records by . For eg: Filtering paid events by providing field name(ticket_type) and field_name(free).
 
         Args:
@@ -35,14 +39,87 @@ class Base_Dao:
         Returns:
             _type_: Returns the column and value as a dictionary
         """        
-        with Base_Dao.session()  as db:
+        
+        try:
+            with Base_Dao.session()  as db:
             
-            records_object_list = db.query(self.model).filter(getattr(self.model,field_name) == field_value).all()
+                records_object_list = db.query(self.model).filter(getattr(self.model,field_name) == field_value).all()
+                    
+                if not records_object_list:
+                    return []
                 
-            if not records_object_list:
-                return []
+                records_list = [record.__dict__ for record in records_object_list]
+                
+                return records_list
+        except SQLAlchemyError as e:
             
-            records_list = [record.__dict__ for record in records_object_list]
+            db.rollback()
+            raise e
+
+    def fetch_records_from_model(self):
+        """ can be used for fetching all records from the model.
+
+        Args:
+            field_name (_type_): Field name of the model
+            field_value (_type_): Field value of the selected Field
+
+        Returns:
+            _type_: Returns the column and value as a dictionary
+        """        
+        
+        try:
+            with Base_Dao.session()  as db:
             
-            return records_list
+                records_object_list = db.query(self.model).all()
+                    
+                if not records_object_list:
+                    return []
+                
+                records_list = [record.__dict__ for record in records_object_list]
+                
+                return records_list
+            
+        except SQLAlchemyError as e:
+            raise e       
     
+    def create_record(self, data : dict):
+        
+        try:
+            with Base_Dao.session()  as db:
+                
+                new_data = self.model(**data)
+                
+                db.add(new_data)
+                
+                db.commit()
+                
+                return new_data.__dict__
+            
+        except SQLAlchemyError as e:
+            
+            db.rollback()
+            
+            raise e
+        
+    def update_record(self, data, field_name, field_value):
+
+        
+        try:
+            with self.session() as db:
+            
+                data_row = db.query(self.model).filter(getattr(self.model, field_name) == field_value).first()
+                
+                for key, value in data.items():
+                    setattr(data_row, key, value)
+                    
+                db.commit()
+                
+                db.refresh(data_row)
+                
+                return data_row.__dict__
+        
+        except SQLAlchemyError as e:
+            
+            db.rollback()
+            
+            raise e 

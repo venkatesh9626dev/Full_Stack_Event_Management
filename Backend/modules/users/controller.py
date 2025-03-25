@@ -2,6 +2,10 @@ from fastapi import APIRouter, Request, Response, Depends , HTTPException , stat
 
 from . import schema
 
+from utils import binaryConversion
+
+from .models import Auth_Dao
+
 from .service import Authentication_Service , User_Profile_Service
 
 from .validator import Auth_Validator
@@ -47,27 +51,37 @@ async def signin_user(response : Response , authenticate_credentials : schema.Au
 @users_router.post("/profile")
 async def create_profile(profile_data : schema.Profile_Create_Request_Schema , user_id : str = Depends(protected_dependency.validate_user) ):
     
-    is_user_exist = Auth_Validator.check_current_user(user_id)
+    user_binary_id = binaryConversion.str_to_binary(user_id)
     
-    if not is_user_exist:
+    user = Auth_Dao.get_record(field_name = "user_id", field_value = user_binary_id)
+    
+    if not user:
         
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED , detail= "User not exists")
+        raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid Credentials"
+            )
     
     
     response_details = User_Profile_Service.create_profile(profile_data , user_id)
     
-    return schema.Profile_Create_Response_Schema(**response_details.__dict__)
+    return schema.Profile_Create_Response_Schema(**response_details)
     
     
 
 @users_router.get("/profile")
 async def get_profile(user_id : str = Depends(protected_dependency.validate_user)):
     
-    is_user_exist = Auth_Validator.check_current_user(user_id)
+    user_binary_id = binaryConversion.str_to_binary(user_id)
     
-    if not is_user_exist:
-        
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED , detail= "User not exists")
+    user = Auth_Dao.get_record(field_name = "user_id", field_value = user_binary_id)
+    
+    if not user:
+    
+        raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid Credentials"
+            )
 
     user_profile = User_Profile_Service.get_profile(user_id)
     
@@ -75,11 +89,16 @@ async def get_profile(user_id : str = Depends(protected_dependency.validate_user
 @users_router.patch("/profile")
 async def patch_profile(updated_data : schema.Profile_Update_Request_Schema , user_id : str = Depends(protected_dependency.validate_user)):
     
-    is_user_exist = Auth_Validator.check_current_user(user_id)
+    user_binary_id = binaryConversion.str_to_binary(user_id)
     
-    if not is_user_exist:
-        
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED , detail= "User not exists")
+    user = Auth_Dao.get_record(field_name = "user_id", field_value = user_binary_id)
+    
+    if not user:
+    
+        raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid Credentials"
+            )
 
     updated_response = User_Profile_Service.update_profile(updated_data , user_id)
     
@@ -88,11 +107,16 @@ async def patch_profile(updated_data : schema.Profile_Update_Request_Schema , us
 @users_router.put("/profile")
 async def update_profile(updated_data : schema.Profile_Update_Request_Schema , user_id : str = Depends(protected_dependency.validate_user)):
     
-    is_user_exist = Auth_Validator.check_current_user(user_id)
+    user_binary_id = binaryConversion.str_to_binary(user_id)
     
-    if not is_user_exist:
-        
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED , detail= "User not exists")
+    user = Auth_Dao.get_record(field_name = "user_id", field_value = user_binary_id)
+    
+    if not user:
+    
+        raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid Credentials"
+            )
 
     updated_response = User_Profile_Service.update_profile(updated_data , user_id)
     

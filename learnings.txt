@@ -9,3 +9,5 @@
 5: Got to know about getattr() of the instance object which provides the value of object's attribute value
 
 6: By learning that getattr(), I get to knew about dynamic selecting of instance object.
+
+7: Don't need to explicitly define default none is sql because i will be none, if we not give value to the field

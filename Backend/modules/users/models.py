@@ -9,6 +9,8 @@ from enum import Enum
 from pydantic import EmailStr
 
 from . import schema as users_schema
+
+from shared.generic_dao import Base_Dao
 from utils import binaryConversion
 
 from uuid import uuid4
@@ -61,122 +63,18 @@ class ProfileModel(Base):
     users = relationship("UsersModel",back_populates="profile")
     
     
-class Auth_Dao:
-    
-    @staticmethod
-    def register_user(register_credentials : users_schema.Auth_Request_Schema):
+class Auth_Dao(Base_Dao):
 
-            user_uuid = binaryConversion.str_to_binary(str(uuid4()))
-        
-            try:
-                with SessionLocal() as db:
-                    
-                    new_user = UsersModel(**register_credentials.model_dump(), user_id = user_uuid)
-                    
-                    db.add(new_user)
-                    
-                    db.commit()
-                    
-                    db.refresh(new_user) 
-                    
-                    return new_user  
-                          
-            except SQLAlchemyError as e:
-                
-                db.rollback()
-                
-                raise e
-    
-            
-    @staticmethod
-    def get_user_credentials_by_email( email : EmailStr):
-        
-        try:
-            with SessionLocal() as db:
-                
-                user_row = db.query(UsersModel).filter(UsersModel.email == email).first()
-                
-                return user_row           
-        
-        except SQLAlchemyError as e:
-            
-            raise e
-    
-    @staticmethod
-    def get_user_credentials_by_user_id( user_id : str):
-        
-        binary_id = binaryConversion.str_to_binary(user_id)
-        
-        try:
-            with SessionLocal() as db:
-                
-                user_row = db.query(UsersModel).filter(UsersModel.user_id == binary_id).first()
-                return user_row           
-        
-        except SQLAlchemyError as e:
-            
-            raise e
-    
-    
-class Profile_Dao:
-    
-    @staticmethod
-    def create_user_profile(profile_details : users_schema.Profile_Create_Request_Schema , user_uuid):
-        
-        try:
-            profile_uuid = binaryConversion.str_to_binary(str(uuid4()))
-            with SessionLocal() as db:
-                
-                new_profile = ProfileModel(**profile_details.model_dump(),profile_id = profile_uuid , user_id = user_uuid)
+    def __init__(self,model):
+        super().__init__(model)
 
-                db.add(new_profile)
-                
-                db.commit()
-                
-                db.refresh(new_profile) 
-                
-                return new_profile
-        except SQLAlchemyError as e:
-            
-            db.rollback()
-            
-            raise e
-    @staticmethod
-    def update_user_profile( profile_id,update_data : users_schema.Profile_Update_Request_Schema):
-        
-        try:
-            with SessionLocal() as db:
-            
-                user_profile = db.query(ProfileModel).filter(ProfileModel.profile_id == profile_id).first()
-                 
-                update_data = {k: v for k, v in update_data.model_dump().items() if v is not None}
-                
-                for k , v in update_data.items():
-                    setattr(user_profile , k , v)
-                
-                db.commit()
-                
-                db.refresh(user_profile)
-                
-                return user_profile
-        except SQLAlchemyError as e:
-            
-            db.rollback()
-           
-            raise e
-        
-    @staticmethod
-    def get_user_profile(user_id):
-        
-        try:
-            with SessionLocal() as db:
-                
-                user_profile = db.query(ProfileModel).filter(ProfileModel.user_id == user_id).first()
-                
-                return user_profile if user_profile else None
-            
-        except SQLAlchemyError as e:    
-            raise e
     
-profile_dao = Profile_Dao()
-auth_dao = Auth_Dao()
+    
+class Profile_Dao(Base_Dao):
+
+    def __init__(self,model):
+        super().__init__(model)
+    
+    
+profile_dao = Profile_Dao(ProfileModel)
+auth_dao = Auth_Dao(UsersModel)

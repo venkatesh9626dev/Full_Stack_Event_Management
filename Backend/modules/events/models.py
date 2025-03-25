@@ -7,7 +7,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.sql import func
 
 from . import schema
-
+from shared.generic_dao import Base_Dao
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -84,7 +84,7 @@ class Events_Model(Base):
 
     )
     
-    
+
 class Event_Bookings_Model(Base):
     
     __tablename__ = "event_bookings"
@@ -92,8 +92,8 @@ class Event_Bookings_Model(Base):
     booking_id = Column(Integer, autoincrement=True, primary_key=True)
     event_id = Column(BINARY(16), ForeignKey("events.event_id", ondelete="CASCADE"), nullable=False)
     attendee_id  = Column(BINARY(16), ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False)
-    ticket_status = Column(Enum(generic_enum.Ticket_Status), nullable=False, default=generic_enum.Ticket_Status.VALID)
-    ticket_qr_code = Column(String(255), nullable=False)
+    scanned_at = Column(TIMESTAMP,nullable=True)
+    
     registered_at = Column(TIMESTAMP, nullable=False, server_default=func.now())
     
     attendee = relationship("UsersModel", back_populates="bookings")
@@ -101,16 +101,19 @@ class Event_Bookings_Model(Base):
     
     __table_args__ = (UniqueConstraint("attendee_id", "event_id", name="uq_user_event"),)
     
-class Event_Dao:
+class Event_Dao(Base_Dao):
+    
+    def __init__(self,model):
+        super().__init__(model)
 
         
-     def create_event(self, event_data : schema.Event_Model_Schema):
+    def create_event(self, event_data : schema.Event_Model_Schema):
         
         try:
             with SessionLocal() as db:
                 
                 new_event = Events_Model(**event_data.model_dump())
-                
+
                 db.add(new_event)
                 
                 db.commit()
@@ -125,7 +128,7 @@ class Event_Dao:
             
             raise e
         
-     def update_event(self, update_data : schema.Event_Update_Request_Schema):
+    def update_event(self, update_data : schema.Event_Update_Request_Schema):
         
         event_id = update_data.event_id
         
@@ -149,7 +152,7 @@ class Event_Dao:
             
             raise e 
     
-     def get_events(self):
+    def get_events(self):
         
         try:
             
@@ -166,7 +169,7 @@ class Event_Dao:
             
             raise e
         
-     def get_event_by_id(self, event_id : bytes):
+    def get_event_by_id(self, event_id : bytes):
         
         try:
             with SessionLocal() as db:
@@ -181,7 +184,7 @@ class Event_Dao:
             raise e
         
             
-     def get_events_by_ids(self ,event_id_list : list[bytes]):
+    def get_events_by_ids(self ,event_id_list : list[bytes]):
         
         try:
             with SessionLocal() as db:
@@ -196,7 +199,7 @@ class Event_Dao:
 
             raise e
         
-class Event_Bookings_Dao:
+class Event_Bookings_Dao(Base_Dao):
     
      def register_attendee(self, booking_data):
         
@@ -217,44 +220,12 @@ class Event_Bookings_Dao:
 
             raise e 
     
-     def get_attendee_ids(self ,event_id : bytes):
-        
-        try:
-            with SessionLocal() as db:
-            
-                attendee_id = db.query(Event_Bookings_Model.attendee_id).filter(Event_Bookings_Model.event_id == event_id).all()
-                
-                if not attendee_id:
-                    return None
-                
-                return attendee_id.__dict__
-        except SQLAlchemyError as e:
-
-            raise e
-        
-     def get_user_bookings(self ,user_id):
-        
-        try:
-            with SessionLocal() as db:
-            
-                user_bookings = db.query(Event_Bookings_Model).filter(Event_Bookings_Model.user_id == user_id).all()
-                
-                if not user_bookings:
-                    
-                    return None
-                
-                return user_bookings.__dict__
-            
-        except SQLAlchemyError as e:
-
-            raise e
-        
      def get_booking_data(self, user_id, event_id):
         
         try:
             with SessionLocal() as db:
                 
-                booking_data = db.query(Event_Bookings_Model).filter(Event_Bookings_Model.attendee_id == user_id and Event_Bookings_Model.event_id == event_id)
+                booking_data = db.query(Event_Bookings_Model).filter(Event_Bookings_Model.attendee_id == user_id and Event_Bookings_Model.event_id == event_id).first()
                 
                 if not booking_data:
                     
@@ -266,107 +237,17 @@ class Event_Bookings_Dao:
 
             raise e        
 
-class Category_Dao:
+class Category_Dao(Base_Dao):
     
-     def create_category(self ,category_data : schema.Event_Category_Model_Schema):
+    def __init__(self,model):
+        super().__init__(model)
         
-        try:
-            with SessionLocal() as db:
-            
-                new_category = Event_Category_Model(**category_data.model_dump())
-                
-                db.add(new_category)
-                
-                db.commit()
-                
-                db.refresh(new_category)
-                
-                return new_category.__dict__       
-        except SQLAlchemyError as e:
-            
-            db.rollback()
-            
-            raise e
+class Location_Dao(Base_Dao):
     
-     def get_categories(self ):
-        
-        with SessionLocal() as db:
-            
-            category_list = db.query(Event_Category_Model).all()
-            
-            if not category_list:
-                
-                return None
-            
-            return category_list.__dict__
+    def __init__(self,model):
+        super().__init__(model)    
 
-     def get_category_by_name(self, category_name : str):
-        
-        with SessionLocal() as db:
-            
-            category_data = db.query(Event_Category_Model).filter(Event_Category_Model.category_name == category_name).first()
-            
-            if not category_data:
-                
-                return None
-            
-            return category_data.__dict__
-        
-class Location_Dao:
-    
-     def create_location_data(self ,location_data : schema.Event_Location_Model_Schema):
-        
-        try:
-            with SessionLocal() as db:
-                
-                new_location = Event_Location_Model(**location_data.model_dump())
-                
-                db.add(new_location)
-                
-                db.commit()
-                
-                db.refresh(new_location)
-                
-                return new_location.__dict__
-        
-        except SQLAlchemyError as e:
-            
-            db.rollback()
-            
-            raise e
-        
-     def get_location_by_name(self, full_location : str):
-        
-        try:
-            with SessionLocal() as db:
-            
-                location_data = db.query(Event_Location_Model).filter(Event_Location_Model.full_location == full_location).first()
-                
-                if location_data:
-                    
-                    return location_data.__dict__
-                
-                return None
-            
-        except SQLAlchemyError as e:
-            
-            raise e
-    
-     def get_location_by_id(self ,location_id : int):
-        
-        try:
-            with SessionLocal() as db:
-            
-                location_row = db.query(Event_Location_Model).filter(Event_Location_Model.location_id == location_id).first()
-                
-                if not location_row:
-                    return None
-                return location_row.__dict__
-        except SQLAlchemyError as e:
-
-            raise e
-        
-category_dao = Category_Dao()
-location_dao = Location_Dao()
-events_dao = Event_Dao()
-bookings_dao = Event_Bookings_Dao()
+category_dao = Category_Dao(Event_Category_Model)
+location_dao = Location_Dao(Event_Location_Model)
+events_dao = Event_Dao(Events_Model)
+bookings_dao = Event_Bookings_Dao(Event_Bookings_Model)

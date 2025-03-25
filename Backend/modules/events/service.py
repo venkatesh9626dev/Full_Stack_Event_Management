@@ -21,28 +21,19 @@ class Category_Class:
       
     def create_category(self, category_data):
       
-      return self.category_dao.create_category(category_data).__dict__
+      return self.category_dao.create_record(category_data.model_dump())
     
     def get_categories(self):
         
-        category_Object_list = self.category_dao.get_categories()
-        
-        if not category_Object_list:
-          return []
-      
-        category_list = [category_object.__dict__ for category_object in category_Object_list]
+        category_list = self.category_dao.fetch_records_from_model()
         
         return category_list
     
     def get_category_by_name(self, category_name : str):
       
-      category_data = self.category_dao.get_category_by_name(category_name)
+      category_data = self.category_dao.fetch_records_by_field_name(field_name= "category_name", field_value = category_name)
       
-      return category_data if category_data else None
-    
-
-    
-    
+      return category_data 
 # Location Related Class
       
 class Location_Class:
@@ -79,21 +70,23 @@ class Location_Class:
         
         location_data = self.location_schema(**coords, full_location = full_location)
         
-        inserted_data = self.location_dao.create_location_data(location_data)
+        inserted_data = self.location_dao.create_record(location_data.model_dump())
         
         return inserted_data
         
     def get_location_by_name(self,location_name):
       
-      location_data = self.location_dao.get_location_by_name(location_name)
+      location_data = self.location_dao.get_record(field_name = "full_location", field_value = location_name)
       
-      return location_data if location_data else None
+      return location_data
       
     def get_location_by_id(self, location_id):
       
-      location_data = self.location_dao.get_location_by_id(location_id)
+      location_data = self.location_dao.get_record(field_name = "location_id", field_value = location_id)
       
-      return location_data if location_data else None
+      return location_data
+
+
     
 class Bookings_Class:
   
@@ -106,7 +99,15 @@ class Bookings_Class:
     
     return attendee_data
   
+  def register_attendee(self, event_id, attendee_id):
     
+    is_already_registered = self.get_attendee_booking_data(event_id, attendee_id)
+  
+    if is_already_registered:
+      
+      raise HTTPException(status_code=status.HTTP_409_CONFLICT,detail="You have already registered in this event")
+    
+    pass
 # Events Related Class
 
 class Events_Class:
@@ -153,7 +154,9 @@ class Events_Class:
         
         event_schema_object = event_schema.Event_Model_Schema(**event_data,**ticket_dict, **participant_dict, landmark=address_dict["landmark"], category_id=category_data["category_id"], address_id = address_data["address_id"], creator_id=creator_id,event_id = event_id )
         
-        new_event_dict = self.event_dao.create_event(event_schema_object)
+        new_event_dict = self.event_dao.create_record(event_schema_object.model_dump())
+        
+        default_attendee = self.bookings_service
         
         new_event_dict["event_id"] = binaryConversion.binary_to_str(new_event_dict["event_id"])
         
@@ -163,7 +166,7 @@ class Events_Class:
       
     def get_events_list(self):
       
-      events_list = self.event_dao.get_events()
+      events_list = self.event_dao.fetch_records_from_model()
       
       return events_list if events_list else []
     

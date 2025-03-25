@@ -71,6 +71,6 @@ async def get_categories():
 @events_router.post("/category", status_code=status.HTTP_201_CREATED)
 def create_category(category_data : schema.Category_Schema, user_id : str = Depends(protected_dependency.validate_user)):
     
-    new_category = category_service.create_category(category_data)
+    new_category = category_service.create_category(category_data.model_dump())
     
     return schema.Category_Schema(**new_category)
