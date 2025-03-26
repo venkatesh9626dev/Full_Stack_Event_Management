@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Request, Response, Depends , HTTPException , status
+from fastapi import APIRouter, Request, Response, Depends, HTTPException, status, File, UploadFile
 
 from . import schema
 
@@ -6,123 +6,137 @@ from utils import binaryConversion
 
 from .models import Auth_Dao
 
-from .service import Authentication_Service , User_Profile_Service
+from .service import Authentication_Service, User_Profile_Service
 
 from .validator import Auth_Validator
 
 from middlewares import protected_dependency
 
-users_router = APIRouter(); 
+from .dependency import get_profile_create_data,get_profile_update_data
+
+users_router = APIRouter()
 
 
 # Users Authentication routes
 
+
 @users_router.post("/auth/register")
-async def register_user(response : Response , register_credentials : schema.Auth_Request_Schema):
-    
+async def register_user(
+    response: Response, register_credentials: schema.Auth_Request_Schema
+):
+
     response_details = Authentication_Service.register_user(register_credentials)
-    
+
     response.set_cookie(
-        key = "access_token",
-        value = response_details["access_token"],
-        httponly = True,
+        key="access_token",
+        value=response_details["access_token"],
+        httponly=True,
         max_age=3600,
-        #secure = True This will be added after making https
+        # secure = True This will be added after making https
     )
-    
-    return schema.Auth_Response_Schema( email = response_details["email"])
+
+    return schema.Auth_Response_Schema(email=response_details["email"])
+
 
 @users_router.post("/auth/signin")
-async def signin_user(response : Response , authenticate_credentials : schema.Auth_Request_Schema):
-    response_details = Authentication_Service.authenticate_user(authenticate_credentials)
-    
-    response.set_cookie(
-        key = "access_token",
-        value = response_details["access_token"],
-        httponly = True,
-        max_age=3600,
-        #secure = True This will be added after making https
+async def signin_user(
+    response: Response, authenticate_credentials: schema.Auth_Request_Schema
+):
+    response_details = Authentication_Service.authenticate_user(
+        authenticate_credentials
     )
-    
-    return schema.Auth_Response_Schema( email = response_details["email"])
+
+    response.set_cookie(
+        key="access_token",
+        value=response_details["access_token"],
+        httponly=True,
+        max_age=3600,
+        # secure = True This will be added after making https
+    )
+
+    return schema.Auth_Response_Schema(email=response_details["email"])
+
 
 # Users Profile routes
 
+
 @users_router.post("/profile")
-async def create_profile(profile_data : schema.Profile_Create_Request_Schema , user_id : str = Depends(protected_dependency.validate_user) ):
-    
-    user_binary_id = binaryConversion.str_to_binary(user_id)
-    
-    user = Auth_Dao.get_record(field_name = "user_id", field_value = user_binary_id)
-    
+async def create_profile(
+    profile_data: schema.Profile_Create_Request_Schema = Depends(get_profile_create_data),
+    user_binary_id: bytes = Depends(protected_dependency.validate_user)
+):
+
+
+    user = Auth_Dao.get_record(field_name="user_id", field_value=user_binary_id)
+
     if not user:
-        
+
         raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid Credentials"
-            )
-    
-    
-    response_details = User_Profile_Service.create_profile(profile_data , user_id)
-    
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid Credentials"
+        )
+
+    response_details = User_Profile_Service.create_profile(profile_data.model_dump(), user_binary_id)
+
     return schema.Profile_Create_Response_Schema(**response_details)
-    
-    
+
 
 @users_router.get("/profile")
-async def get_profile(user_id : str = Depends(protected_dependency.validate_user)):
-    
-    user_binary_id = binaryConversion.str_to_binary(user_id)
-    
-    user = Auth_Dao.get_record(field_name = "user_id", field_value = user_binary_id)
-    
-    if not user:
-    
-        raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid Credentials"
-            )
+async def get_profile(user_binary_id: bytes = Depends(protected_dependency.validate_user)):
 
-    user_profile = User_Profile_Service.get_profile(user_id)
-    
-    return schema.Profile_Response_Schema(**user_profile.__dict__)
+
+    user = Auth_Dao.get_record(field_name="user_id", field_value=user_binary_id)
+
+    if not user:
+
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid Credentials"
+        )
+
+    user_profile = User_Profile_Service.get_profile(user_binary_id)
+
+    return schema.User_Profile_Response_Schema(**user_profile)
+
+
 @users_router.patch("/profile")
-async def patch_profile(updated_data : schema.Profile_Update_Request_Schema , user_id : str = Depends(protected_dependency.validate_user)):
-    
-    user_binary_id = binaryConversion.str_to_binary(user_id)
-    
-    user = Auth_Dao.get_record(field_name = "user_id", field_value = user_binary_id)
-    
-    if not user:
-    
-        raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid Credentials"
-            )
+async def patch_profile(
+    updated_data: schema.Profile_Update_Request_Schema = Depends(get_profile_update_data),
+    user_binary_id: str = Depends(protected_dependency.validate_user),
+):
 
-    updated_response = User_Profile_Service.update_profile(updated_data , user_id)
-    
-    return schema.Profile_Update_Response_Schema(**updated_response.__dict__)
+
+    user = Auth_Dao.get_record(field_name="user_id", field_value=user_binary_id)
+
+    if not user:
+
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid Credentials"
+        )
+
+    updated_response = User_Profile_Service.update_profile(updated_data.model_dump(), user_binary_id)
+
+    return schema.Profile_Response_Schema(**updated_response)
+
 
 @users_router.put("/profile")
-async def update_profile(updated_data : schema.Profile_Update_Request_Schema , user_id : str = Depends(protected_dependency.validate_user)):
-    
-    user_binary_id = binaryConversion.str_to_binary(user_id)
-    
-    user = Auth_Dao.get_record(field_name = "user_id", field_value = user_binary_id)
-    
-    if not user:
-    
-        raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid Credentials"
-            )
+async def update_profile(
+    updated_data: schema.Profile_Update_Request_Schema = Depends(get_profile_update_data),
+    user_binary_id: bytes = Depends(protected_dependency.validate_user)
+):
 
-    updated_response = User_Profile_Service.update_profile(updated_data , user_id)
-    
-    return schema.Profile_Update_Response_Schema(**updated_response.__dict__)
+
+    user = Auth_Dao.get_record(field_name="user_id", field_value=user_binary_id)
+
+    if not user:
+
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid Credentials"
+        )
+
+    updated_response = User_Profile_Service.update_profile(updated_data.model_dump(), user_binary_id)
+
+    return schema.Profile_Response_Schema(**updated_response)
+
+
 # @users_router.get("/{user_id}/profile")
 # async def get_user_profile():
 #     pass
-
-

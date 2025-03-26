@@ -11,3 +11,27 @@
 6: By learning that getattr(), I get to knew about dynamic selecting of instance object.
 
 7: Don't need to explicitly define default none is sql because i will be none, if we not give value to the field
+
+
+Tools Installed:
+
+flake8 → Checks for PEP 8 violations & syntax errors
+
+pylint → Provides a code quality score
+
+black → Auto-formats code
+
+isort → Sorts imports correctly
+
+
+The Most Efficient Flow
+1️⃣ User visits "My Bookings" → Fetch from the backend once & cache in frontend state.
+2️⃣ User registers for a new event →
+
+✅ Update cached data locally.
+
+✅ Send request to backend, but don’t refetch all bookings.
+3️⃣ User refreshes the page after a long time → Refetch bookings from backend.
+4️⃣ Backend caches data (optional) → Use Redis for heavy traffic.
+
+✅ This minimizes API hits, improves performance, and keeps data fresh! 🚀
