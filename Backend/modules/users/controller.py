@@ -10,7 +10,7 @@ from .service import Authentication_Service, User_Profile_Service
 
 from .validator import Auth_Validator
 
-from middlewares import protected_dependency
+from middlewares.protected_dependency import get_current_user
 
 from .dependency import get_profile_create_data,get_profile_update_data
 
@@ -63,7 +63,7 @@ async def signin_user(
 @users_router.post("/profile")
 async def create_profile(
     profile_data: schema.Profile_Create_Request_Schema = Depends(get_profile_create_data),
-    user_binary_id: bytes = Depends(protected_dependency.validate_user)
+    user_binary_id: bytes = Depends(get_current_user)
 ):
 
 
@@ -81,7 +81,7 @@ async def create_profile(
 
 
 @users_router.get("/profile")
-async def get_profile(user_binary_id: bytes = Depends(protected_dependency.validate_user)):
+async def get_profile(user_binary_id: bytes = Depends(get_current_user)):
 
 
     user = Auth_Dao.get_record(field_name="user_id", field_value=user_binary_id)
@@ -100,7 +100,7 @@ async def get_profile(user_binary_id: bytes = Depends(protected_dependency.valid
 @users_router.patch("/profile")
 async def patch_profile(
     updated_data: schema.Profile_Update_Request_Schema = Depends(get_profile_update_data),
-    user_binary_id: str = Depends(protected_dependency.validate_user),
+    user_binary_id: str = Depends(get_current_user),
 ):
 
 
@@ -120,7 +120,7 @@ async def patch_profile(
 @users_router.put("/profile")
 async def update_profile(
     updated_data: schema.Profile_Update_Request_Schema = Depends(get_profile_update_data),
-    user_binary_id: bytes = Depends(protected_dependency.validate_user)
+    user_binary_id: bytes = Depends(get_current_user)
 ):
 
 
@@ -137,6 +137,9 @@ async def update_profile(
     return schema.Profile_Response_Schema(**updated_response)
 
 
-# @users_router.get("/{user_id}/profile")
-# async def get_user_profile():
-#     pass
+@users_router.get("/{user_id}/profile")
+async def get_user_profile(user_binary_id: bytes = Depends(get_current_user)):
+    
+    user_profile = User_Profile_Service.get_profile(user_binary_id)
+
+    return schema.User_Profile_Response_Schema(**user_profile)

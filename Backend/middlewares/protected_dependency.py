@@ -4,8 +4,10 @@ from core.auth import Jwt_Token
 
 from utils.binaryConversion import str_to_binary
 
+from modules.users.validator import general_user_validation
 
-def validate_user(request: Request):
+
+def get_current_user(request: Request):
 
     access_token = request.cookies.get("access_token")
 
@@ -16,5 +18,9 @@ def validate_user(request: Request):
         )
 
     user_id = Jwt_Token.verify_access_token(access_token)
+    
+    user_binary_id = str_to_binary(user_id)
+    
+    general_user_validation.validate_user_exists(user_binary_id)
 
-    return str_to_binary(user_id)
+    return user_binary_id

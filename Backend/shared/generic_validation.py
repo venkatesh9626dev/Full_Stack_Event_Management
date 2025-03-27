@@ -2,6 +2,7 @@ from shared import generic_enum
 import re
 
 
+
 class Schema_Validation:
 
     @staticmethod
@@ -73,3 +74,4 @@ class Schema_Validation:
             raise ValueError("Participant Count of Individual should be always One")
 
         return participant_details
+

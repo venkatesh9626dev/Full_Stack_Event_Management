@@ -17,16 +17,13 @@ from sqlalchemy import (
     UniqueConstraint,
     BOOLEAN,
 )
-from sqlalchemy.orm import relationship
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.sql import func
 
 from . import schema
 from shared.generic_dao import Base_Dao
-from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from modules.users.models import UsersModel
+from modules.users.models import UsersModel, ProfileModel
 
 
 class Event_Category_Model(Base):
@@ -41,11 +38,6 @@ class Event_Category_Model(Base):
         TIMESTAMP, nullable=True, onupdate=func.now()
     )  # Updates on modification
 
-    # Relationship with Events_Model
-
-    events = relationship(
-        "Events_Model", back_populates="category", cascade="all, delete-orphan"
-    )
 
 
 class Event_Location_Model(Base):
@@ -58,11 +50,6 @@ class Event_Location_Model(Base):
     longitude = Column(Float, nullable=False)
     created_at = Column(TIMESTAMP, nullable=False, server_default=func.now())
 
-    # Relationship with Events_Model
-
-    events = relationship(
-        "Events_Model", back_populates="address", cascade="all, delete-orphan"
-    )
 
 
 class Events_Model(Base):
@@ -98,14 +85,7 @@ class Events_Model(Base):
     )
     creator_id = Column(BINARY(16), ForeignKey("users.user_id"), nullable=False)
 
-    # Relationships
 
-    category = relationship("Event_Category_Model", back_populates="events")
-    address = relationship("Event_Location_Model", back_populates="events")
-    creator = relationship("UsersModel")
-    bookings = relationship(
-        "Event_Bookings_Model", back_populates="event", cascade="all, delete"
-    )
     __table_args__ = (
         CheckConstraint(
             "ticket_fare > 0", name="check_ticket_fare_positive"
@@ -134,8 +114,6 @@ class Event_Bookings_Model(Base):
     scanned_at = Column(TIMESTAMP, nullable=True)
     registered_at = Column(TIMESTAMP, nullable=False)
     created_at = Column(TIMESTAMP, server_default=func.now())
-    attendee = relationship("UsersModel", back_populates="bookings")
-    event = relationship("Events_Model", back_populates="bookings")
 
     __table_args__ = (
         UniqueConstraint("attendee_id", "event_id", name="uq_user_event"),
@@ -150,32 +128,59 @@ class Event_Dao(Base_Dao):
 
 class Event_Bookings_Dao(Base_Dao):
 
-    def __init__(self, model):
-        super().__init__(model)
+    def __init__(self, bookings_model,event_model,profile_model):
+        super().__init__(bookings_model)
+        self.event_model = event_model
+        self.profile_model = profile_model
 
-    def get_user_booking_data(self, user_id, event_id):
+    def get_user_bookings_by_event_ids(self, attendee_id, event_id_list : list): # This is used for searching bookings by event name or event_id
 
         try:
             with Base_Dao.session() as db:
 
-                booking_data = (
-                    db.query(self.model)
-                    .filter(
-                        getattr(self.model, user_id) == user_id
-                        and getattr(self.model, event_id) == event_id
-                    )
-                    .first()
+                booking_Object_list = (
+                    db.query(self.model.booking_id,self.event_model)
+                    .join(self.event_model , self.model.event_id == self.event_model.event_id).filter(self.model.attendee_id == attendee_id and self.model.booking_status == True and self.model.event_id in(event_id_list)).all()
                 )
 
-                if not booking_data:
+                if not booking_Object_list:
 
-                    return None
+                    return []
 
-                return booking_data.__dict__
+                booking_data_list = [{"booking_id": booking_id, "event_data": event_object.__dict__} for booking_id, event_object in booking_Object_list]
+
+                return booking_data_list
 
         except SQLAlchemyError as e:
 
             raise e
+        
+    def get_user_bookings_data(self, attendee_id):
+
+        try:
+
+            with Base_Dao.session() as db:
+
+                booking_Object_list = (
+                    db.query(self.model,self.event_model)
+                    .join(self.event_model , self.model.event_id == self.event_model.event_id)
+                    .filter(
+                        getattr(self.model, "attendee_id") == attendee_id
+                        and getattr(self.model, "booking_status") == True
+                    )
+                    .all()
+                )
+
+                if not booking_Object_list:
+                    return []
+
+                booking_data_list = [{"booking_id": booking_id, "event_data": event_object.__dict__} for booking_id, event_object in booking_Object_list]
+
+                return booking_data_list
+
+        except SQLAlchemyError as e:
+
+            raise e       
 
     def get_event_booking_data(self, event_id):
 
@@ -183,19 +188,16 @@ class Event_Bookings_Dao(Base_Dao):
 
             with Base_Dao.session() as db:
 
-                booking_data_list = (
-                    db.query(self.model)
-                    .filter(
-                        getattr(self.model, "event_id") == event_id
-                        and getattr(self.model, "booking_status") == True
-                    )
-                    .all()
+                booking_Object_list = (
+                    db.query(self.model.booking_id,self.profile_model.first_name,self.profile_model.last_name,self.profile_model.profile_id).join(self.profile_model, self.model.attendee_id == self.profile_model.user_id)  
+    .filter(self.model.event_id == event_id, self.model.booking_status == True)
+    .all()
                 )
 
-                if not booking_data_list:
-                    return None
+                if not booking_Object_list:
+                    return []
 
-                booking_data_list = [data.__dict__ for data in booking_data_list]
+                booking_data_list = [data.__dict__ for data in booking_Object_list]
 
                 return booking_data_list
 
@@ -219,4 +221,4 @@ class Location_Dao(Base_Dao):
 category_dao = Category_Dao(Event_Category_Model)
 location_dao = Location_Dao(Event_Location_Model)
 events_dao = Event_Dao(Events_Model)
-bookings_dao = Event_Bookings_Dao(Event_Bookings_Model)
+bookings_dao = Event_Bookings_Dao(Event_Bookings_Model,Events_Model,ProfileModel)

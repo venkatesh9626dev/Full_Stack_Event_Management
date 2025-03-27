@@ -117,7 +117,7 @@ class Bookings_Class:
 
         attendee_data = self.get_attendee_booking_data(event_id, attendee_id)
 
-        if not attendee_data or not attendee_data["booking_status"]:
+        if not attendee_data :
 
             return False
 
@@ -131,7 +131,11 @@ class Bookings_Class:
 
         return available_tickets
 
-    def get_event_booking_data(self, event_id):
+    def get_event_booking_data(self, event_id, creator_id):
+        
+        validator.events_validator.validate_event_exists(event_id)
+        
+        validator.creator_validator.validate_creator(event_id, creator_id)
 
         event_bookings_list = self.bookings_dao.get_event_booking_data(event_id)
 
@@ -142,6 +146,9 @@ class Bookings_Class:
         event_data = self.event_dao.get_record(
             field_name="event_id", field_value=event_id
         )
+        
+        if not event_data:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail="The event is not found")
 
         available_tickets = self.get_available_bookings(
             event_data["event_id"], event_data["total_tickets"]
@@ -157,7 +164,7 @@ class Bookings_Class:
 
         booking_data = self.get_attendee_booking_data(event_id, attendee_id)
 
-        if booking_data and booking_data["booking_status"]:
+        if booking_data:
 
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
@@ -179,6 +186,7 @@ class Bookings_Class:
 
 
 class Events_Class:
+    
 
     def __init__(
         self,
@@ -186,7 +194,7 @@ class Events_Class:
         bookings_service,
         category_service,
         event_dao,
-        events_validator,
+        events_validator
     ):
         self.location_service = location_service
         self.bookings_service = bookings_service
@@ -293,7 +301,7 @@ events_service = Events_Class(
     bookings_service,
     category_service,
     models.events_dao,
-    events_validator,
+    events_validator
 )
 
 __all__ = ["category_service", "location_service", "events_service"]

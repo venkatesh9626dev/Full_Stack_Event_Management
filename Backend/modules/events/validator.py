@@ -56,8 +56,9 @@ class Participant_Validator_Class:
 
 class Creator_Validator_Class:
 
-    def __init__(self, user_profile_dao):
+    def __init__(self, user_profile_dao, events_dao):
         self.user_profile_dao = user_profile_dao
+        self.events_dao = events_dao
 
     def is_merchant_id_exists(self, creator_id):
 
@@ -75,6 +76,13 @@ class Creator_Validator_Class:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="User should enter their razorpay merchant id to create a paid events to receive money from participants",
             )
+            
+    def validate_creator_match(self, event_id, creator_id):
+        
+        event = self.events_dao.get_record(field_name="event_id", field_value = event_id)
+        
+        if event["creator_id"] != creator_id:
+            HTTPException(status_code=status.HTTP_403_FORBIDDEN,detail="Only event creator can see their participant details")
 
 
 class Events_Validator_Class:
@@ -97,11 +105,17 @@ class Events_Validator_Class:
         if event_ticket_type == generic_enum.Ticket_Type_Enum.PAID:
 
             self.creator_validator.is_merchant_id_exists(creator_id)
-
+    
+    def validate_event_exists(self, event_id):
+        
+        event = self.events_dao.get_record(field_name="event_id", field_value = event_id)
+        
+        if not event:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail="Event not exist to see the booking data")
 
 event_dao = models.events_dao
 time_validator = TimeDate_Validator_Class()
-creator_validator = Creator_Validator_Class(profile_dao)
+creator_validator = Creator_Validator_Class(profile_dao,event_dao)
 
 events_validator = Events_Validator_Class(
     event_dao=event_dao,

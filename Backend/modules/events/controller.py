@@ -1,28 +1,27 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from middlewares import protected_dependency
-
 from . import schema
 
 from utils import binaryConversion
 
-from .service import category_service, events_service
+from .service import category_service, events_service, bookings_service
 
 from .dependency import get_create_event_data, get_update_event_data
+
+from middlewares.protected_dependency import get_current_user
 
 events_router = APIRouter()
 
 
 @events_router.post("/", status_code=status.HTTP_201_CREATED)
 async def create_event(
-    event_data: schema.Event_Request_Schema = Depends(get_create_event_data),
-    user_id: str = Depends(protected_dependency.validate_user),
+    user_binary_id: bytes = Depends(get_current_user),
+    event_data: schema.Event_Request_Schema = Depends(get_create_event_data)
 ):
 
-    user_id = binaryConversion.str_to_binary(user_id)
 
     event_create_response = events_service.create_event(
-        event_data.model_dump(), user_id
+        event_data.model_dump(), user_binary_id
     )
 
     return schema.Event_Response_Schema(**event_create_response)
@@ -30,16 +29,16 @@ async def create_event(
 
 @events_router.put("/{event_id}")
 async def update_event_details(
-    update_data : schema.Event_Update_Request_Schema = Depends(get_update_event_data),
-    user_id: str = Depends(protected_dependency.validate_user),
+    user_id: bytes = Depends(get_current_user),
+    update_data : schema.Event_Update_Request_Schema = Depends(get_update_event_data)
 ):
     pass
 
 
 @events_router.patch("/{event_id}")
 async def update_event_detail(
-    update_data : schema.Event_Update_Request_Schema = Depends(get_update_event_data),
-    user_id: str = Depends(protected_dependency.validate_user),
+    user_id: bytes = Depends(get_current_user),
+    update_data : schema.Event_Update_Request_Schema = Depends(get_update_event_data)
 ):
     pass
 
@@ -53,14 +52,14 @@ async def get_events():
 
 @events_router.get("/category/{category}")
 async def get_events_by_category(
-    user_id: str = Depends(protected_dependency.validate_user),
+    user_id: bytes = Depends(get_current_user),
 ):
     pass
 
 
 @events_router.get("/{event_id}")
 async def get_event_by_id(
-    event_id: str, user_id: str = Depends(protected_dependency.validate_user)
+    event_id: str, user_id: bytes = Depends(get_current_user)
 ):
 
     [byte_event_id, byte_user_id] = [
@@ -71,22 +70,28 @@ async def get_event_by_id(
         byte_event_id=byte_event_id, byte_user_id=byte_user_id
     )
 
+@events_router.get("/{event_id}/bookings")
+def get_event_bookings(event_id : str, creator_id : bytes = Depends(get_current_user)):
+    
+    event_bookings = bookings_service.get_event_booking_data(event_id=event_id,creator_id=creator_id)
+    
+    
 
 @events_router.get("/search")
-async def search_events(user_id: str = Depends(protected_dependency.validate_user)):
+async def search_events(user_id: bytes = Depends(get_current_user)):
     pass
 
 
 @events_router.get("/created")
 async def get_created_events(
-    user_id: str = Depends(protected_dependency.validate_user),
+    user_id: bytes = Depends(get_current_user),
 ):
     pass
 
 
-@events_router.get("/registered")
-async def get_registered_events(
-    user_id: str = Depends(protected_dependency.validate_user),
+@events_router.get("/booked")
+async def get_booked_events(
+    user_id: bytes = Depends(get_current_user),
 ):
     pass
 
@@ -102,7 +107,7 @@ async def get_categories():
 @events_router.post("/category", status_code=status.HTTP_201_CREATED)
 def create_category(
     category_data: schema.Category_Schema,
-    user_id: str = Depends(protected_dependency.validate_user),
+    user_id: bytes = Depends(get_current_user),
 ):
 
     new_category = category_service.create_category(category_data.model_dump())

@@ -25,11 +25,6 @@ from utils import binaryConversion
 
 from uuid import uuid4
 
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from modules.events.models import Events_Model, Event_Bookings_Model
-
 
 class GenderEnum(Enum):
     male = "male"
@@ -80,9 +75,6 @@ class ProfileModel(Base):
         TIMESTAMP, nullable=True, onupdate=func.now(), server_default=func.now()
     )  # Updates on modification
 
-    # relationship with profile table
-
-    users = relationship("UsersModel", back_populates="profile")
 
 
 class Auth_Dao(Base_Dao):

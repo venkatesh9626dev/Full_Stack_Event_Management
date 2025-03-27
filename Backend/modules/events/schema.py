@@ -220,5 +220,11 @@ class Events_Response_Schema(BaseModel):
 
 
 class Event_Response_Schema(Event_Base_Response_Schema):
-    event_id: str = Field(...)
     register_state: generic_enum.Ticket_Status = Field(...)
+
+class Booking_Request_Schema(BaseModel):
+    event_id : str
+
+class Booking_Response_Schema(BaseModel):
+    booking_id : int
+    event_data : Event_Base_Response_Schema
