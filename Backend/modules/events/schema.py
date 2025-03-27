@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, model_validator, ConfigDict
+from pydantic import BaseModel, Field, model_validator, ConfigDict, field_validator
 from typing import List
 from datetime import date, datetime
 from typing import Optional
@@ -8,6 +8,8 @@ from decimal import Decimal
 from shared.generic_validation import Schema_Validation
 
 from shared import generic_enum
+
+from utils import binaryConversion
 
 # Category Schema
 
@@ -121,6 +123,12 @@ class Event_Request_Schema(Event_Base_Schema):
 
 class Event_Update_Request_Schema(BaseModel):
     event_id: str = Field(...)
+    event_name: str = Field(
+        None,
+        min_length=3,
+        max_length=100,
+        description="Event name must be between 3-100 characters",
+    )
     event_description: str = Field(
         None,
         min_length=10,
@@ -139,7 +147,13 @@ class Event_Update_Request_Schema(BaseModel):
     @model_validator(mode="before")
     @classmethod
     def check_at_least_one_field(cls, data):
-        return Schema_Validation.check_at_least_one_field(data)
+        
+        temp_event_id = data["event_id"]
+        del data["event_id"]
+        
+        validated_data = Schema_Validation.check_at_least_one_field(data)
+        
+        return {**validated_data,"event_id" : temp_event_id}
 
     model_config = ConfigDict(extra="ignore", str_strip_whitespace=True)
 
@@ -203,13 +217,22 @@ class Ticket_Response_Schema(Ticket_Schema):
 
 # Events Response Schema
 
+# This is for the event response before login and for home page
 
 class Event_Base_Response_Schema(Event_Base_Schema):
-
-    event_id: str = Field(...)
-    address: Event_Location_Model_Schema = Field(...)
+    event_id : str = Field(...)
+    category_name: str = Field(
+        ...,
+        min_length=3,
+        max_length=50,
+        description="Category name must be between 3-50 characters",
+    )
+    address_details: Address_Schema = Field(...)
     ticket_details: Ticket_Response_Schema = Field(...)
     participant_details: Participant_Schema = Field(...)
+    
+    class Config:
+        extra = "ignore"
 
 
 class Events_Response_Schema(BaseModel):
@@ -218,13 +241,32 @@ class Events_Response_Schema(BaseModel):
 
 # Event Response Schema
 
+# This is for the event response schema after login and to event details page
+
 
 class Event_Response_Schema(Event_Base_Response_Schema):
-    register_state: generic_enum.Ticket_Status = Field(...)
+    register_state: generic_enum.Registration_Status_Enum = Field(...)
 
 class Booking_Request_Schema(BaseModel):
     event_id : str
 
-class Booking_Response_Schema(BaseModel):
+class User_Booking_Response_Schema(BaseModel):
     booking_id : int
-    event_data : Event_Base_Response_Schema
+    event_id : str
+    event_name : str
+    event_image : str
+    event_start_date_time : str
+    event_end_date_time  :str
+    ticket_fare : str
+    
+
+class User_Bookings_Response_Schema(BaseModel):
+    bookings_list : List[User_Booking_Response_Schema] = Field(default_factory=list)
+    
+class Event_Bookings_Response_Schema(BaseModel):
+    booking_id : int
+    profile_id : int
+    first_name : str
+    last_name : str
+    
+    

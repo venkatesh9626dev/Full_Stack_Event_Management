@@ -66,6 +66,7 @@ def get_create_event_data(
 def get_update_event_data(
     event_name : str = Form(None),
     event_description : str = Form(None),
+    event_agenda : str = Form(None),
     image_file : UploadFile = File(None)
 ):
     
@@ -73,6 +74,6 @@ def get_update_event_data(
         event_image_url = upload_file(image_file)
         
     return Event_Update_Request_Schema(
-        event_name=event_name, event_description=event_description,event_image_url=event_image_url
+        event_name=event_name,event_agenda=event_agenda, event_description=event_description,event_image_url=event_image_url
     )
     

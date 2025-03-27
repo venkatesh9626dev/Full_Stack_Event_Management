@@ -61,8 +61,6 @@ class Base_Dao:
 
                 return records_list
         except SQLAlchemyError as e:
-
-            db.rollback()
             raise e
 
     def fetch_records_by_list(self, field_name, field_value_list: list):

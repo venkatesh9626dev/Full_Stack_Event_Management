@@ -40,6 +40,10 @@ class Participant_Enum(str, Enum):
                     return member
         return None
 
+class Registration_Status_Enum(str,Enum):
+    
+    REGISTERED = "registered"
+    NOT_REGISTERED = "not_registered"
 
 # Cloudinary Based Enum
 

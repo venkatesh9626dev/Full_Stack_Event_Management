@@ -29,15 +29,16 @@ async def create_event(
 
 @events_router.put("/{event_id}")
 async def update_event_details(
-    user_id: bytes = Depends(get_current_user),
+    user_binary_id: bytes = Depends(get_current_user),
     update_data : schema.Event_Update_Request_Schema = Depends(get_update_event_data)
 ):
-    pass
+    updated_data = events_service.update_event(update_data=update_data,creator_id=user_binary_id)
 
+    return schema.Event_Base_Response_Schema(**updated_data)
 
 @events_router.patch("/{event_id}")
 async def update_event_detail(
-    user_id: bytes = Depends(get_current_user),
+    user_binary_id: bytes = Depends(get_current_user),
     update_data : schema.Event_Update_Request_Schema = Depends(get_update_event_data)
 ):
     pass
@@ -52,46 +53,46 @@ async def get_events():
 
 @events_router.get("/category/{category}")
 async def get_events_by_category(
-    user_id: bytes = Depends(get_current_user),
+    user_binary_id: bytes = Depends(get_current_user),
 ):
     pass
 
 
 @events_router.get("/{event_id}")
 async def get_event_by_id(
-    event_id: str, user_id: bytes = Depends(get_current_user)
+    event_id: str, user_binary_id: bytes = Depends(get_current_user)
 ):
 
-    [byte_event_id, byte_user_id] = [
-        binaryConversion.str_to_binary(id) for id in [event_id, user_id]
-    ]
+    binary_event_id = binaryConversion.str_to_binary(event_id)
 
     event_data = events_service.get_event_by_id(
-        byte_event_id=byte_event_id, byte_user_id=byte_user_id
+        byte_event_id=binary_event_id, byte_user_id=user_binary_id
     )
+    
+    return schema.Event_Response_Schema(**event_data,event_id= event_id)
 
 @events_router.get("/{event_id}/bookings")
 def get_event_bookings(event_id : str, creator_id : bytes = Depends(get_current_user)):
     
     event_bookings = bookings_service.get_event_booking_data(event_id=event_id,creator_id=creator_id)
     
-    
+    return schema.User_Bookings_Response_Schema(bookings_list = event_bookings)
 
 @events_router.get("/search")
-async def search_events(user_id: bytes = Depends(get_current_user)):
+async def search_events(user_binary_id: bytes = Depends(get_current_user)):
     pass
 
 
 @events_router.get("/created")
 async def get_created_events(
-    user_id: bytes = Depends(get_current_user),
+    user_binary_id: bytes = Depends(get_current_user),
 ):
     pass
 
 
 @events_router.get("/booked")
 async def get_booked_events(
-    user_id: bytes = Depends(get_current_user),
+    user_binary_id: bytes = Depends(get_current_user),
 ):
     pass
 
@@ -107,7 +108,7 @@ async def get_categories():
 @events_router.post("/category", status_code=status.HTTP_201_CREATED)
 def create_category(
     category_data: schema.Category_Schema,
-    user_id: bytes = Depends(get_current_user),
+    user_binary_id: bytes = Depends(get_current_user),
 ):
 
     new_category = category_service.create_category(category_data.model_dump())

@@ -1,5 +1,7 @@
 from database import Base
 
+from datetime import datetime
+
 from shared import generic_enum
 from sqlalchemy import (
     Column,
@@ -122,8 +124,45 @@ class Event_Bookings_Model(Base):
 
 class Event_Dao(Base_Dao):
 
-    def __init__(self, model):
-        super().__init__(model)
+    def __init__(self, event_model, location_model):
+        super().__init__(event_model)
+        self.location_model = location_model
+        
+    def get_event_data_by_id(self, event_id):
+        
+        try:
+            with Base_Dao.session() as db:
+                
+                event_data_tuple = db.query(self.model,self.location_model).join(self.location_model,self.model.address_id == self.location_model.address_id).filter(self.model.event_id == event_id).first()
+                
+                return {**event_data_tuple[0]._asdict(), **event_data_tuple[1]._asdict()}
+
+                
+        except SQLAlchemyError as e:
+
+            raise e 
+        
+    def get_events(self):
+        
+        try:
+            with Base_Dao.session() as db:
+
+                records_object_list = (
+                    db.query(self.model.event_name,self.model.event_id,self.model.event_image,self.model.event_start_date_time,self.model.event_end_date_time,self.model.ticket_fare,self.model.ticket_type,self.location_model.full_location)
+                    .join(self.location_model, self.model.address_id == self.location_model.address_id)
+                    .filter(self.model.event_start_date_time  > datetime.now())
+                    .mappings()
+                    .all()
+                )
+
+                if not records_object_list:
+                    return []
+
+                records_list = [record.__dict__ for record in records_object_list]
+
+                return records_list
+        except SQLAlchemyError as e:
+            raise e
 
 
 class Event_Bookings_Dao(Base_Dao):
@@ -138,18 +177,17 @@ class Event_Bookings_Dao(Base_Dao):
         try:
             with Base_Dao.session() as db:
 
-                booking_Object_list = (
-                    db.query(self.model.booking_id,self.event_model)
-                    .join(self.event_model , self.model.event_id == self.event_model.event_id).filter(self.model.attendee_id == attendee_id and self.model.booking_status == True and self.model.event_id in(event_id_list)).all()
+                bookings_tuple = (
+                    db.query(self.model.booking_id,self.event_model.event_id,self.event_model.event_name,self.event_model.event_image,self.event_model.event_start_date_time,self.event_model.event_end_date_time,self.event_model.ticket_fare)
+                    .join(self.event_model , self.model.event_id == self.event_model.event_id).filter(self.model.attendee_id == attendee_id and self.model.booking_status == True and self.model.event_id in(event_id_list)).mappings().all()
                 )
 
-                if not booking_Object_list:
+                if not bookings_tuple:
 
                     return []
-
-                booking_data_list = [{"booking_id": booking_id, "event_data": event_object.__dict__} for booking_id, event_object in booking_Object_list]
-
-                return booking_data_list
+                
+                return list(bookings_tuple)
+            
 
         except SQLAlchemyError as e:
 
@@ -161,8 +199,8 @@ class Event_Bookings_Dao(Base_Dao):
 
             with Base_Dao.session() as db:
 
-                booking_Object_list = (
-                    db.query(self.model,self.event_model)
+                bookings_tuple = (
+                    db.query(self.model.booking_id,self.event_model.event_id,self.event_model.event_name,self.event_model.event_image,self.event_model.event_start_date_time,self.event_model.event_end_date_time,self.event_model.ticket_fare)
                     .join(self.event_model , self.model.event_id == self.event_model.event_id)
                     .filter(
                         getattr(self.model, "attendee_id") == attendee_id
@@ -171,12 +209,10 @@ class Event_Bookings_Dao(Base_Dao):
                     .all()
                 )
 
-                if not booking_Object_list:
+                if not bookings_tuple:
                     return []
-
-                booking_data_list = [{"booking_id": booking_id, "event_data": event_object.__dict__} for booking_id, event_object in booking_Object_list]
-
-                return booking_data_list
+                
+                return list(bookings_tuple)
 
         except SQLAlchemyError as e:
 
@@ -188,22 +224,24 @@ class Event_Bookings_Dao(Base_Dao):
 
             with Base_Dao.session() as db:
 
-                booking_Object_list = (
+                bookings_tuple = (
                     db.query(self.model.booking_id,self.profile_model.first_name,self.profile_model.last_name,self.profile_model.profile_id).join(self.profile_model, self.model.attendee_id == self.profile_model.user_id)  
-    .filter(self.model.event_id == event_id, self.model.booking_status == True)
+    .filter( self.model.booking_status == True)
+    .mappings()
     .all()
                 )
 
-                if not booking_Object_list:
+                if not bookings_tuple:
                     return []
 
-                booking_data_list = [data.__dict__ for data in booking_Object_list]
-
-                return booking_data_list
+                return list(bookings_tuple)
 
         except SQLAlchemyError as e:
 
             raise e
+        
+    def get_event_bookings_count(self,event_id): # This is to find the count of total bookings
+        pass
 
 
 class Category_Dao(Base_Dao):
@@ -220,5 +258,5 @@ class Location_Dao(Base_Dao):
 
 category_dao = Category_Dao(Event_Category_Model)
 location_dao = Location_Dao(Event_Location_Model)
-events_dao = Event_Dao(Events_Model)
+events_dao = Event_Dao(Events_Model,Event_Location_Model)
 bookings_dao = Event_Bookings_Dao(Event_Bookings_Model,Events_Model,ProfileModel)

@@ -103,31 +103,44 @@ class Location_Class:
 
 class Bookings_Class:
 
-    def __init__(self, bookings_dao, event_dao):
+    def __init__(self, bookings_dao, event_dao,time_validator):
         self.bookings_dao = bookings_dao
         self.event_dao = event_dao
+        self.time_validator = time_validator
 
-    def get_attendee_booking_data(self, event_id, attendee_id):
+    def get_attendee_bookings_by_event_list(self, event_id_list, attendee_id): # This is used for searching bookings by event name or event_id
 
-        attendee_data = self.bookings_dao.get_user_booking_data(attendee_id, event_id)
+        attendee_bookings_list = self.bookings_dao.get_user_bookings_by_event_ids(attendee_id, event_id_list)
 
-        return attendee_data
+        if not attendee_bookings_list:
+            return []
+        
+        return [{**data,"booking_id":binaryConversion.binary_to_str(data["booking_id"]),"event_id":binaryConversion.binary_to_str(data["event_id"])} for data in attendee_bookings_list]
 
+    
+    def get_attendee_bookings(self,attendee_id):
+        
+        attendee_bookings_list = self.bookings_dao.get_user_bookings_data(attendee_id)
+        
+        if not attendee_bookings_list:
+            return []
+        
+        return [{**data,"booking_id":binaryConversion.binary_to_str(data["booking_id"]),"event_id":binaryConversion.binary_to_str(data["event_id"])} for data in attendee_bookings_list]
     def get_attendee_booking_status(self, event_id, attendee_id):
 
         attendee_data = self.get_attendee_booking_data(event_id, attendee_id)
 
         if not attendee_data :
 
-            return False
+            return generic_enum.Registration_Status_Enum.NOT_REGISTERED.value
 
-        return True
+        return generic_enum.Registration_Status_Enum.REGISTERED.value
 
     def get_available_bookings(self, event_id, total_tickets):
 
-        bookings_list = self.bookings_dao.get_event_booking_data(event_id)
+        bookings_count = self.bookings_dao.get_event_bookings_count(event_id)
 
-        available_tickets = total_tickets - len(bookings_list)
+        available_tickets = total_tickets - bookings_count
 
         return available_tickets
 
@@ -139,7 +152,9 @@ class Bookings_Class:
 
         event_bookings_list = self.bookings_dao.get_event_booking_data(event_id)
 
-        return event_bookings_list
+        if event_bookings_list:
+            return []
+        return [{**data,"booking_id":binaryConversion.binary_to_str(data["booking_id"]),"profile_id":binaryConversion.binary_to_str(data["profile_id"])} for data in event_bookings_list]
 
     def register_attendee(self, event_id, attendee_id):
 
@@ -150,6 +165,8 @@ class Bookings_Class:
         if not event_data:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail="The event is not found")
 
+        self.time_validator.event_registration_expiry_check(event_start_datetime=event_data["event_start_datetime"])
+        
         available_tickets = self.get_available_bookings(
             event_data["event_id"], event_data["total_tickets"]
         )
@@ -179,9 +196,12 @@ class Bookings_Class:
             booking_data = event_schema.Booking_Model_Schema(event_id=event_id,attendee_id=attendee_id,booking_status=True,registered_at=datetime.now())
 
             new_booking = self.bookings_dao.create_record(**booking_data.model_dump())
+            
+            return {"booking_id" : new_booking["booking_id"],"register_state" : generic_enum.Registration_Status_Enum.REGISTERED.value}
 
         elif ticket_type == generic_enum.Ticket_Type_Enum.PAID:
-            pass
+            pass # Will write later
+        
 # Events Related Class
 
 
@@ -249,8 +269,9 @@ class Events_Class:
         )
 
         new_event_dict = self.event_dao.create_record(event_schema_object.model_dump())
-
-        default_attendee = self.bookings_service
+    
+        # default attendee
+        self.bookings_service.register_attendee(new_event_dict["event_id"],creator_id)
 
         new_event_dict["event_id"] = binaryConversion.binary_to_str(
             new_event_dict["event_id"]
@@ -262,12 +283,33 @@ class Events_Class:
 
         return {
             **new_event_dict,
-            "register_state": "valid",
+            "register_state": generic_enum.Registration_Status_Enum.REGISTERED.value,
             "address": address_data,
             "ticket_details": ticket_response,
             "participant_details": participant_dict,
         }
+        
+    def update_event(self,update_data : dict, creator_id):
+        
+        event_binary_id = binaryConversion.str_to_binary(update_data["event_id"])
+        
+        validator.events_validator.validate_event_exists(event_binary_id)
+        validator.creator_validator.validate_creator_match(event_id=event_binary_id, creator_id=creator_id)
+        
+        update_data["event_id"] = event_binary_id
+        
+        updated_data = self.event_dao.update_record(data=update_data, field_name = "event_id", field_value = event_binary_id)
 
+        address_details = event_schema.Address_Schema(**self.location_service.get_location_by_id(updated_data["address_id"]))
+        
+        participant_details = event_schema.Participant_Schema(participant_type=updated_data["participant_type"],participant_count=updated_data["participant_count"])
+        
+        available_tickets = self.bookings_service.get_available_bookings
+        
+        ticket_details = event_schema.Ticket_Response_Schema(ticket_type=updated_data["ticket_type"],ticket_fare=updated_data["ticket_fare"],total_tickets=updated_data["total_tickets"],available_tickets=available_tickets)
+        
+        return {**updated_data,"address_details" : address_details, "ticket_details" : ticket_details, "participant_details" : participant_details}
+    
     def get_events_list(self):
 
         events_list = self.event_dao.fetch_records_from_model()
@@ -276,7 +318,7 @@ class Events_Class:
 
     def get_event_by_id(self, byte_event_id, byte_user_id):
 
-        event_data = self.event_dao.get_event_by_id(byte_event_id)
+        event_data = self.event_dao.get_event_data_by_id(byte_event_id)
 
         if not event_data:
             raise HTTPException(
@@ -284,15 +326,26 @@ class Events_Class:
                 detail=f"The Event with this ({event_data}) is not exist",
             )
 
-        booking_data = self.bookings_service.get_attendee_booking_status(
+        booking_status = self.bookings_service.get_attendee_booking_status(
             byte_event_id, byte_user_id
         )
+        
+        available_tickets = self.bookings_service.get_available_bookings
+        
+        ticket_details = event_schema.Ticket_Response_Schema(ticket_type=event_data["ticket_type"],ticket_fare=event_data["ticket_fare"],total_tickets=event_data["total_tickets"],available_tickets=available_tickets)
+        
+        participant_details = event_schema.Participant_Schema(participant_type=event_data["participant_type"],participant_count=event_data["participant_count"] )
+        
+        address_details = event_schema.Event_Location_Model_Schema(full_location=event_data["full_location"],latitude=event_data["latitude"],longitude=event_data["longitude"])
+        
+        return {**event_data,"address_details":address_details,"participant_details" : participant_details,"ticket_details" : ticket_details,"register_state" : booking_status }
+        
 
 
 events_validator = validator.events_validator
 
 category_service = Category_Class(models.category_dao)
-bookings_service = Bookings_Class(models.bookings_dao, models.events_dao)
+bookings_service = Bookings_Class(models.bookings_dao, models.events_dao,validator.time_validator)
 location_service = Location_Class(
     event_schema.Event_Location_Model_Schema, models.location_dao
 )
