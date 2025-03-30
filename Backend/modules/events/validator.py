@@ -20,8 +20,16 @@ class TimeDate_Validator_Class:
 
 class Participant_Validator_Class:
 
-    def __init__(self, event_bookings_dao):
+    def __init__(self, event_bookings_dao,profile_dao):
         self.event_bookings_dao = event_bookings_dao
+        self.profile_dao = profile_dao
+        
+    def check_profile_exists(self,attendee_id):
+        
+        profile = profile_dao.fetch_record(field_name="user_id",field_value=attendee_id)
+        
+        if not profile:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only Profile holders can register in the events")
 
     def is_already_registered(self, event_id, user_id):
 
@@ -90,6 +98,7 @@ class Events_Validator_Class:
 event_dao = models.events_dao
 time_validator = TimeDate_Validator_Class()
 creator_validator = Creator_Validator_Class(profile_dao,event_dao)
+participant_validator = Participant_Validator_Class(event_bookings_dao= models.bookings_dao,profile_dao=profile_dao)
 
 events_validator = Events_Validator_Class(
     event_dao=event_dao,

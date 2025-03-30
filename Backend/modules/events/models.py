@@ -22,11 +22,10 @@ from sqlalchemy import (
 )
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.sql import func
-from sqlalchemy.orm import relationship
-from . import schema
+
 from shared.generic_dao import Base_Dao
 
-from modules.users.models import UsersModel, ProfileModel
+from modules.users.models import ProfileModel
 
 
 class Event_Category_Model(Base):
@@ -38,9 +37,8 @@ class Event_Category_Model(Base):
     category_image_url = Column(String(255), nullable=False)
     created_at = Column(TIMESTAMP, nullable=False, server_default=func.now())
     updated_at = Column(
-        TIMESTAMP, nullable=True, onupdate=func.now()
+        TIMESTAMP, nullable=True, onupdate=func.now(),server_default=func.now()
     )  # Updates on modification
-
 
 
 class Event_Location_Model(Base):
@@ -103,7 +101,7 @@ class Event_Bookings_Model(Base):
 
     __tablename__ = "event_bookings"
 
-    booking_id = Column(Integer, autoincrement=True, primary_key=True)
+    booking_id = Column(String(50), primary_key=True)
     event_id = Column(
         BINARY(16), ForeignKey("events.event_id", ondelete="CASCADE"), nullable=False, index=True
     )
@@ -127,6 +125,42 @@ class Event_Dao(Base_Dao):
         self.location_model = location_model
         self.category_model = category_model
         
+    
+    def get_created_events(self, creator_id):
+        
+        try:
+            with Base_Dao.session() as db:
+                
+                stmt = select(
+    self.model.event_name,
+    self.model.event_description,
+    self.model.event_id, 
+    self.model.event_image_url,
+    self.model.event_agenda,
+    self.category_model.category_name,
+    self.model.event_start_date_time, 
+    self.model.event_end_date_time,
+    self.model.ticket_fare, 
+    self.model.ticket_type, 
+    self.model.total_tickets,
+    self.location_model.full_location,
+    self.location_model.latitude,
+    self.location_model.longitude
+).join(self.location_model, self.model.address_id == self.location_model.location_id)\
+.join(self.category_model, self.model.category_id == self.category_model.category_id)\
+ .filter(self.model.creator_id == creator_id)\
+.order_by(self.model.event_start_date_time.desc())
+
+                records_object_tuple =   db.execute(stmt).mappings().all()
+
+                if not records_object_tuple:
+                    return []
+
+                records_list = [dict(record) for record in records_object_tuple]
+
+                return records_list
+        except SQLAlchemyError as e:
+            raise e
         
         
     def get_event_data_by_id(self, event_id):
@@ -134,14 +168,14 @@ class Event_Dao(Base_Dao):
         try:
             with Base_Dao.session() as db:
                 
-                event_data_tuple = db.query(self.model,self.location_model,self.category_model.category_name).join(self.location_model,self.model.address_id == self.location_model.address_id).join(self.category_model,self.model.category_id == self.category_model.category_id).filter(self.model.event_id == event_id).first()
+                event_data_tuple = db.query(self.model,self.location_model,self.category_model.category_name).join(self.location_model,self.model.address_id == self.location_model.location_id).join(self.category_model,self.model.category_id == self.category_model.category_id).filter(self.model.event_id == event_id).first()
                 
                 return {**event_data_tuple[0].__dict__, **event_data_tuple[1].__dict__,"category_name" : event_data_tuple[2]}
 
                 
         except SQLAlchemyError as e:
 
-            raise e 
+            raise e
         
     def get_events(self):
         
@@ -163,7 +197,7 @@ class Event_Dao(Base_Dao):
     self.location_model.full_location,
     self.location_model.latitude,
     self.location_model.longitude
-).join(self.location_model, self.model.address_id == self.location_model.address_id)\
+).join(self.location_model, self.model.address_id == self.location_model.location_id)\
 .join(self.category_model, self.model.category_id == self.category_model.category_id)\
  .filter(self.model.event_start_date_time > datetime.now())
 
@@ -236,9 +270,10 @@ class Event_Bookings_Dao(Base_Dao):
                         self.model.booking_id,
                         self.event_model.event_id,
                         self.event_model.event_name,
-                        self.event_model.event_image,
+                        self.event_model.event_image_url,
                         self.event_model.event_start_date_time,
                         self.event_model.event_end_date_time,
+                        self.event_model.ticket_type,
                         self.event_model.ticket_fare,
                     )
                     .join(self.event_model, self.model.event_id == self.event_model.event_id)
@@ -322,14 +357,76 @@ class Category_Dao(Base_Dao):
 
     def __init__(self, model):
         super().__init__(model)
+        
+    def create_category_by_list(self, category_dict_list):
+        
 
+
+        with Base_Dao.session() as db:
+            
+            
+            new_categories = [self.model(**data) for data in category_dict_list]
+
+            db.add_all(new_categories)  
+            db.commit() 
+
+            
+            for category in new_categories:
+                db.refresh(category)
+
+            return [category.__dict__ for category in new_categories]
+    
+        
 
 class Location_Dao(Base_Dao):
 
     def __init__(self, model):
         super().__init__(model)
+        
+class Search_Dao(Base_Dao):
+    
+    def __init__(self, events_model,category_model,location_model):
+        self.events_model= events_model
+        self.category_model=category_model
+        self.location_model = location_model
+        
+    def fetch_events_by_category_id(self, category_id):
+        
+        try:
+            with Base_Dao.session() as db:
+                
+                stmt = select(
+    self.events_model.event_name,
+    self.events_model.event_description,
+    self.events_model.event_id, 
+    self.events_model.event_image_url,
+    self.events_model.event_agenda,
+    self.category_model.category_name,
+    self.events_model.event_start_date_time, 
+    self.events_model.event_end_date_time,
+    self.events_model.ticket_fare, 
+    self.events_model.ticket_type, 
+    self.events_model.total_tickets,
+    self.location_model.latitude,
+    self.location_model.longitude,
+    self.location_model.full_location
+).join(self.location_model, self.events_model.address_id == self.location_model.location_id)\
+.join(self.category_model, self.events_model.category_id == self.category_model.category_id)\
+ .filter(self.events_model.event_start_date_time > datetime.now(),self.events_model.category_id == category_id )
 
+                records_object_tuple =   db.execute(stmt).mappings().all()
 
+                if not records_object_tuple:
+                    return []
+
+                records_list = [dict(record) for record in records_object_tuple]
+
+                return records_list
+        except SQLAlchemyError as e:
+            raise e
+        
+
+search_dao = Search_Dao(events_model=Events_Model,category_model=Event_Category_Model, location_model=Event_Location_Model)
 category_dao = Category_Dao(Event_Category_Model)
 location_dao = Location_Dao(Event_Location_Model)
 events_dao = Event_Dao(Events_Model,Event_Location_Model,Event_Category_Model)

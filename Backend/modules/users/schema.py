@@ -85,7 +85,7 @@ class Profile_Create_Request_Schema(Profile_Schema):
     ] = None
     
     
-    merchant_id: Optional[str] = Field(None, pattern=r"^acc_[a-zA-Z0-9]+$")
+    merchant_id: Optional[str] = Field(None)
 
     @field_validator("phone_number", mode="before")
     @classmethod
@@ -147,6 +147,7 @@ class Profile_Update_Request_Schema(BaseModel):
         StringConstraints(pattern=r"^(https?:\/\/.*\.(?:png|jpg|jpeg|gif|svg))$"),
     ]
     ] = None
+    merchant_id: Optional[str] = Field(None)
 
     @model_validator(mode="after")
     def check_at_least_one_field(self):

@@ -17,20 +17,17 @@ from fastapi import HTTPException
 
 
 class Category_Schema(BaseModel):
-    category_name: str = Field(..., min_length=3, max_length=30)
+    category_name: str = Field(..., min_length=3)
     category_image_url: str = Field(
-        None,
+        ...,
         pattern=r"^(http|https)://.*\.(jpg|jpeg|png|gif)$",
         description="Must be a valid image URL",
     )
-
-    model_config = ConfigDict(str_strip_whitespace=True)
 
 
 class Category_Response(BaseModel):
 
     category_list: List[Category_Schema] = Field(default_factory=list)
-
 
 # Participant Schema
 
@@ -104,11 +101,8 @@ class Event_Base_Schema(BaseModel):
 
 
 class Event_Request_Schema(Event_Base_Schema,Address_Schema,Ticket_Schema,Participant_Schema):
-    category_name: str = Field(
-        ...,
-        min_length=3,
-        max_length=50,
-        description="Category name must be between 3-50 characters",
+    category_id: int = Field(
+        ...
     )
 
     
@@ -123,6 +117,8 @@ class Event_Request_Schema(Event_Base_Schema,Address_Schema,Ticket_Schema,Partic
         return values
         
 class Event_Update_Request_Schema(BaseModel):
+    
+     
     event_id: str = Field(...)
     event_name: str = Field(
         None,
@@ -144,13 +140,16 @@ class Event_Update_Request_Schema(BaseModel):
         pattern=r"^(http|https)://.*\.(jpg|jpeg|png|gif)$",
         description="Must be a valid image URL",
     )
+    
+    
+   
 
     @model_validator(mode="after")
     def check_at_least_one_field(self):
         
         return Schema_Validation.check_at_least_one_field(self)
 
-    model_config = ConfigDict(extra="ignore", str_strip_whitespace=True)
+    
 
 
 # Event table schema
@@ -249,22 +248,25 @@ class Event_Response_Schema(Event_Base_Schema):
 
 class Booking_Request_Schema(BaseModel):
     event_id : str
+    
+class Booing_Response_Schema(BaseModel):
+    booking_id : str
+    register_state : generic_enum.Registration_Status_Enum
 
 class User_Booking_Response_Schema(BaseModel):
-    booking_id : int
+    booking_id : str
     event_id : str
     event_name : str
-    event_image : str
-    event_start_date_time : str
-    event_end_date_time  :str
-    ticket_fare : str
+    event_image_url : str
+    event_start_date_time : datetime
+    event_end_date_time  :datetime
+    ticket_type : generic_enum.Ticket_Type_Enum
+    ticket_fare : Decimal
     
 
-class User_Bookings_Response_Schema(BaseModel):
-    bookings_list : List[User_Booking_Response_Schema] = Field(default_factory=list)
     
 class Event_Bookings_Response_Schema(BaseModel):
-    booking_id : int
+    booking_id : str
     profile_id : int
     first_name : str
     last_name : str

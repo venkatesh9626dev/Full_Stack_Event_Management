@@ -24,9 +24,12 @@ class Category_Class:
     def __init__(self, category_dao):
         self.category_dao = category_dao
 
-    def create_category(self, category_data):
+    def create_category(self, category_data_list : list):
+        
+        category_dict_list = [category_data.model_dump() for category_data in category_data_list]
+        
 
-        return self.category_dao.create_record(category_data.model_dump())
+        return self.category_dao.create_category_by_list(category_dict_list)
 
     def get_categories(self):
 
@@ -34,10 +37,10 @@ class Category_Class:
 
         return category_list
 
-    def get_category_by_name(self, category_name: str):
+    def get_category_by_id(self, category_id: int):
 
         category_data = self.category_dao.fetch_record(
-            field_name="category_name", field_value=category_name
+            field_name="category_id", field_value=category_id
         )
 
         return category_data
@@ -115,7 +118,7 @@ class Bookings_Class:
         if not attendee_bookings_list:
             return []
         
-        return [{**data,"booking_id":binaryConversion.binary_to_str(data["booking_id"]),"event_id":binaryConversion.binary_to_str(data["event_id"])} for data in attendee_bookings_list]
+        return [{**data,"event_id":binaryConversion.binary_to_str(data["event_id"])} for data in attendee_bookings_list]
     
     def get_attendee_bookings(self,attendee_id):
         
@@ -124,7 +127,7 @@ class Bookings_Class:
         if not attendee_bookings_list:
             return []
         
-        return [{**data,"booking_id":binaryConversion.binary_to_str(data["booking_id"]),"event_id":binaryConversion.binary_to_str(data["event_id"])} for data in attendee_bookings_list]
+        return [{**data,"event_id":binaryConversion.binary_to_str(data["event_id"])} for data in attendee_bookings_list]
     
     def get_attendee_booking_data(self, event_id, attendee_id):
         
@@ -160,9 +163,11 @@ class Bookings_Class:
 
         if event_bookings_list:
             return []
-        return [{**data,"booking_id":binaryConversion.binary_to_str(data["booking_id"]),"profile_id":binaryConversion.binary_to_str(data["profile_id"])} for data in event_bookings_list]
+        return [{**data,"profile_id":binaryConversion.binary_to_str(data["profile_id"])} for data in event_bookings_list]
 
     def register_attendee(self, event_id, attendee_id):
+        
+        validator.participant_validator.check_profile_exists(attendee_id)
 
         event_data = self.event_dao.fetch_record(
             field_name="event_id", field_value=event_id
@@ -200,8 +205,12 @@ class Bookings_Class:
         elif  ticket_type == generic_enum.Ticket_Type_Enum.FREE:
 
             booking_data = event_schema.Booking_Model_Schema(event_id=event_id,attendee_id=attendee_id,booking_status=True,registered_at=datetime.now())
+            
+            booking_uuid = uuid4()
+            
+            updated_booking_data = {**booking_data.model_dump(),"booking_id" : booking_uuid}
 
-            new_booking = self.bookings_dao.create_record(booking_data.model_dump())
+            new_booking = self.bookings_dao.create_record(updated_booking_data)
             
             return {"booking_id" : new_booking["booking_id"],"register_state" : generic_enum.Registration_Status_Enum.REGISTERED.value}
 
@@ -234,15 +243,15 @@ class Events_Class:
 
         full_address = string_utils.create_full_address({"street_address": event_data["street_address"] ,"city": event_data["city"] ,"state": event_data["state"] ,"pin_code": event_data["pin_code"] , "country" :event_data["country"]})
 
-        category_data = self.category_service.get_category_by_name(
-            event_data["category_name"]
+        category_data = self.category_service.get_category_by_id(
+            event_data["category_id"]
         )
 
         if not category_data:
 
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"The requested {event_data["category_name"]} category is not exists",
+                detail=f"The requested category {event_data["category_id"]} id is not exists",
             )
 
         address_data = self.location_service.get_location_by_name(full_address)
@@ -255,7 +264,6 @@ class Events_Class:
 
         event_schema_object = event_schema.Event_Model_Schema(
             **event_data,
-            category_id=category_data["category_id"],
             address_id=address_data["location_id"],
             creator_id=creator_id,
             event_id=event_id,
@@ -307,7 +315,11 @@ class Events_Class:
         
         ticket_details = event_schema.Ticket_Response_Schema(ticket_type=updated_data["ticket_type"],ticket_fare=updated_data["ticket_fare"],total_tickets=updated_data["total_tickets"],available_tickets=available_tickets)
         
-        return {**updated_data,"address_details" : address_details, "ticket_details" : ticket_details, "participant_details" : participant_details}
+        booking_status = self.bookings_service.get_attendee_booking_status(
+            event_binary_id, creator_id
+        )
+        
+        return {**updated_data,"address_details" : address_details, "ticket_details" : ticket_details, "participant_details" : participant_details, "register_state" : booking_status}
     
     def get_events_list(self):
 
@@ -344,9 +356,32 @@ class Events_Class:
         event_data["event_id"] = binaryConversion.binary_to_str(event_data["event_id"])
         return {**event_data,"address_details":address_details,"participant_details" : participant_details,"ticket_details" : ticket_details,"register_state" : booking_status }
         
+    def get_created_events(self, creator_id):
+        
+        events_list = self.event_dao.get_created_events(creator_id)
 
+        if events_list:
+            return[{**event_data, "event_id" : binaryConversion.binary_to_str(event_data["event_id"])} for event_data in events_list]
+        
+        return []
+class Search_Service:
+    
+    def __init__(self, search_dao):
+        self.search_dao = search_dao
+    
+    def get_events_by_category_id(self,category_id):
+        
+        events_list = self.search_dao.fetch_events_by_category_id(category_id)
+        
+        if events_list:
+            return[{**event_data, "event_id" : binaryConversion.binary_to_str(event_data["event_id"])} for event_data in events_list]
+        
+        return []
+            
 
 events_validator = validator.events_validator
+
+search_service = Search_Service(search_dao=models.search_dao)
 
 category_service = Category_Class(models.category_dao)
 bookings_service = Bookings_Class(models.bookings_dao, models.events_dao,validator.time_validator)

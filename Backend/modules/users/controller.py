@@ -67,14 +67,6 @@ async def create_profile(
 ):
 
 
-    user = Auth_Dao.get_record(field_name="user_id", field_value=user_binary_id)
-
-    if not user:
-
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid Credentials"
-        )
-
     response_details = User_Profile_Service.create_profile(profile_data.model_dump(), user_binary_id)
 
     return schema.Profile_Create_Response_Schema(**response_details)
@@ -84,13 +76,6 @@ async def create_profile(
 async def get_profile(user_binary_id: bytes = Depends(get_current_user)):
 
 
-    user = Auth_Dao.get_record(field_name="user_id", field_value=user_binary_id)
-
-    if not user:
-
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid Credentials"
-        )
 
     user_profile = User_Profile_Service.get_profile(user_binary_id)
 
@@ -104,14 +89,6 @@ async def patch_profile(
 ):
 
 
-    user = Auth_Dao.get_record(field_name="user_id", field_value=user_binary_id)
-
-    if not user:
-
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid Credentials"
-        )
-
     updated_response = User_Profile_Service.update_profile(updated_data.model_dump(), user_binary_id)
 
     return schema.Profile_Response_Schema(**updated_response)
@@ -123,14 +100,6 @@ async def update_profile(
     user_binary_id: bytes = Depends(get_current_user)
 ):
 
-
-    user = Auth_Dao.get_record(field_name="user_id", field_value=user_binary_id)
-
-    if not user:
-
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid Credentials"
-        )
 
     updated_response = User_Profile_Service.update_profile(updated_data.model_dump(), user_binary_id)
 

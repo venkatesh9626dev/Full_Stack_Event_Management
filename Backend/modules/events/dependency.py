@@ -14,7 +14,7 @@ def get_create_event_data(
     event_agenda: str = Form(...),
     event_start_date_time: datetime = Form(...),
     event_end_date_time: datetime = Form(...),
-    category_name: str = Form(...),
+    category_id: int = Form(...),
 
     # Address Details
     street_address: str = Form(...),
@@ -43,7 +43,7 @@ def get_create_event_data(
     return Event_Request_Schema(
         event_name=event_name,event_image_url=event_image_url, event_description=event_description,
         event_agenda=event_agenda, event_start_date_time=event_start_date_time,
-        event_end_date_time=event_end_date_time, category_name=category_name,
+        event_end_date_time=event_end_date_time, category_id=category_id,
         street_address=street_address, landmark=landmark, city=city,
         state=state, pin_code=pin_code, country=country,ticket_type=ticket_type, ticket_fare=ticket_fare, total_tickets=total_tickets,participant_type=participant_type, participant_count=participant_count
     )

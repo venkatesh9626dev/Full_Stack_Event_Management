@@ -1,5 +1,5 @@
 from pydantic_settings import BaseSettings
-
+from cryptography.fernet import Fernet
 
 class Settings(BaseSettings):
     APP_NAME: str
@@ -14,9 +14,12 @@ class Settings(BaseSettings):
     CLOUDINARY_API_KEY : str
     class Config:
         env_file = ".env"  # Load from .env file
+        
 
+key = Fernet.generate_key()
+cipher = Fernet(key)
 
 # Create a settings instance
 settings = Settings()
 
-__all__ = ["settings"]
+__all__ = ["settings","cipher"]

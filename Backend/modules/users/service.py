@@ -12,7 +12,7 @@ from uuid import uuid4
 from .validator import Auth_Validator
 
 
-
+from settings import cipher
 
 class Authentication_Service:
 
@@ -99,10 +99,13 @@ class User_Profile_Service:
         profile_data["user_id"] = binary_user_id
         profile_data["profile_id"] = binary_profile_id
         
-        if "merchant_id" in profile_data:
-            profile_data["merchant_id"] = Hashing.hash_data(profile_data["merchant_id"])
+
 
         new_profile = profile_dao.create_record(profile_data)
+        
+        if new_profile["merchant_id"]:
+        
+            new_profile["merchant_id"] = cipher.decrypt(new_profile["merchant_id"]).decode()
 
         return new_profile
 
@@ -121,11 +124,6 @@ class User_Profile_Service:
                 detail="User profile doesn't exist",
             )
             
-        
-            
-        if "merchant_id" in update_data:
-            update_data["merchant_id"] = Hashing.hash_data(update_data["merchant_id"])
-            
         filtered_data = {f"{key}" : value for key,value in update_data.items() if value is not None}
 
         updated_details = profile_dao.update_record(
@@ -133,6 +131,10 @@ class User_Profile_Service:
             field_name="profile_id",
             field_value=user_profile["profile_id"],
         )
+        
+        if updated_details["merchant_id"]:
+        
+            updated_details["merchant_id"] = cipher.decrypt(updated_details["merchant_id"]).decode()
 
         return updated_details
 
