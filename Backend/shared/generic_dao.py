@@ -120,6 +120,8 @@ class Base_Dao:
                 db.add(new_data)
 
                 db.commit()
+                
+                db.refresh(new_data)
 
                 return new_data.__dict__
 

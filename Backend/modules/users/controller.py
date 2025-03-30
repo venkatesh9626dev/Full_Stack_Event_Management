@@ -25,7 +25,7 @@ async def register_user(
     response: Response, register_credentials: schema.Auth_Request_Schema
 ):
 
-    response_details = Authentication_Service.register_user(register_credentials)
+    response_details = Authentication_Service.register_user(register_credentials.model_dump())
 
     response.set_cookie(
         key="access_token",
@@ -43,7 +43,7 @@ async def signin_user(
     response: Response, authenticate_credentials: schema.Auth_Request_Schema
 ):
     response_details = Authentication_Service.authenticate_user(
-        authenticate_credentials
+        authenticate_credentials.model_dump()
     )
 
     response.set_cookie(

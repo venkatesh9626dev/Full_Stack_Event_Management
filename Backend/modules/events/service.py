@@ -36,7 +36,7 @@ class Category_Class:
 
     def get_category_by_name(self, category_name: str):
 
-        category_data = self.category_dao.fetch_records_by_field_name(
+        category_data = self.category_dao.fetch_record(
             field_name="category_name", field_value=category_name
         )
 
@@ -86,7 +86,7 @@ class Location_Class:
 
     def get_location_by_name(self, location_name):
 
-        location_data = self.location_dao.get_record(
+        location_data = self.location_dao.fetch_record(
             field_name="full_location", field_value=location_name
         )
 
@@ -94,7 +94,7 @@ class Location_Class:
 
     def get_location_by_id(self, location_id):
 
-        location_data = self.location_dao.get_record(
+        location_data = self.location_dao.fetch_record(
             field_name="location_id", field_value=location_id
         )
 
@@ -116,7 +116,6 @@ class Bookings_Class:
             return []
         
         return [{**data,"booking_id":binaryConversion.binary_to_str(data["booking_id"]),"event_id":binaryConversion.binary_to_str(data["event_id"])} for data in attendee_bookings_list]
-
     
     def get_attendee_bookings(self,attendee_id):
         
@@ -126,6 +125,13 @@ class Bookings_Class:
             return []
         
         return [{**data,"booking_id":binaryConversion.binary_to_str(data["booking_id"]),"event_id":binaryConversion.binary_to_str(data["event_id"])} for data in attendee_bookings_list]
+    
+    def get_attendee_booking_data(self, event_id, attendee_id):
+        
+        booking_data  = self.bookings_dao.get_user_booking(event_id, attendee_id)
+        
+        return booking_data
+        
     def get_attendee_booking_status(self, event_id, attendee_id):
 
         attendee_data = self.get_attendee_booking_data(event_id, attendee_id)
@@ -158,14 +164,14 @@ class Bookings_Class:
 
     def register_attendee(self, event_id, attendee_id):
 
-        event_data = self.event_dao.get_record(
+        event_data = self.event_dao.fetch_record(
             field_name="event_id", field_value=event_id
         )
         
         if not event_data:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail="The event is not found")
 
-        self.time_validator.event_registration_expiry_check(event_start_datetime=event_data["event_start_datetime"])
+        self.time_validator.event_registration_expiry_check(event_start_date_time=event_data["event_start_date_time"])
         
         available_tickets = self.get_available_bookings(
             event_data["event_id"], event_data["total_tickets"]
@@ -181,7 +187,7 @@ class Bookings_Class:
 
         booking_data = self.get_attendee_booking_data(event_id, attendee_id)
 
-        if booking_data:
+        if booking_data and booking_data["booking_status"]:
 
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
@@ -195,7 +201,7 @@ class Bookings_Class:
 
             booking_data = event_schema.Booking_Model_Schema(event_id=event_id,attendee_id=attendee_id,booking_status=True,registered_at=datetime.now())
 
-            new_booking = self.bookings_dao.create_record(**booking_data.model_dump())
+            new_booking = self.bookings_dao.create_record(booking_data.model_dump())
             
             return {"booking_id" : new_booking["booking_id"],"register_state" : generic_enum.Registration_Status_Enum.REGISTERED.value}
 
@@ -224,19 +230,9 @@ class Events_Class:
 
     def create_event(self, event_data: dict, creator_id):
 
-        self.event_validator.validate_event_details(event_data, creator_id)
+        self.event_validator.validate_event_authorization(event_data, creator_id)
 
-        address_dict = event_data["address_details"]
-
-        ticket_dict = event_data["ticket_details"]
-
-        participant_dict = event_data["participant_details"]
-
-        del event_data["address_details"]
-        del event_data["participant_details"]
-        del event_data["ticket_details"]
-
-        full_address = string_utils.create_full_address(address_dict)
+        full_address = string_utils.create_full_address({"street_address": event_data["street_address"] ,"city": event_data["city"] ,"state": event_data["state"] ,"pin_code": event_data["pin_code"] , "country" :event_data["country"]})
 
         category_data = self.category_service.get_category_by_name(
             event_data["category_name"]
@@ -259,11 +255,8 @@ class Events_Class:
 
         event_schema_object = event_schema.Event_Model_Schema(
             **event_data,
-            **ticket_dict,
-            **participant_dict,
-            landmark=address_dict["landmark"],
             category_id=category_data["category_id"],
-            address_id=address_data["address_id"],
+            address_id=address_data["location_id"],
             creator_id=creator_id,
             event_id=event_id,
         )
@@ -276,17 +269,21 @@ class Events_Class:
         new_event_dict["event_id"] = binaryConversion.binary_to_str(
             new_event_dict["event_id"]
         )
+        
+        new_event_dict["category_name"] = category_data["category_name"]
 
         ticket_response = event_schema.Ticket_Response_Schema(
-            **ticket_dict, available_tickets=ticket_dict["total_tickets"] - 1
+            ticket_type=event_data["ticket_type"],ticket_fare=event_data["ticket_fare"],total_tickets=event_data["total_tickets"], available_tickets=event_data["total_tickets"] - 1
         )
-
+        
+        address_details = event_schema.Address_Response_Schema(**address_data,landmark=new_event_dict["landmark"])
+        participant_details = event_schema.Participant_Schema(participant_type=new_event_dict["participant_type"], participant_count=new_event_dict["participant_count"])
         return {
             **new_event_dict,
             "register_state": generic_enum.Registration_Status_Enum.REGISTERED.value,
-            "address": address_data,
+            "address_details": address_details,
             "ticket_details": ticket_response,
-            "participant_details": participant_dict,
+            "participant_details": participant_details,
         }
         
     def update_event(self,update_data : dict, creator_id):
@@ -298,13 +295,15 @@ class Events_Class:
         
         update_data["event_id"] = event_binary_id
         
-        updated_data = self.event_dao.update_record(data=update_data, field_name = "event_id", field_value = event_binary_id)
+        filtered_data = {f"{key}" : value for key,value in update_data.items() if value is not None}
+        
+        updated_data = self.event_dao.update_record(data=filtered_data, field_name = "event_id", field_value = event_binary_id)
 
-        address_details = event_schema.Address_Schema(**self.location_service.get_location_by_id(updated_data["address_id"]))
+        address_details = event_schema.Address_Response_Schema(**self.location_service.get_location_by_id(updated_data["address_id"]),landmark=updated_data["landmark"])
         
         participant_details = event_schema.Participant_Schema(participant_type=updated_data["participant_type"],participant_count=updated_data["participant_count"])
         
-        available_tickets = self.bookings_service.get_available_bookings
+        available_tickets = self.bookings_service.get_available_bookings(updated_data["event_id"], updated_data["total_tickets"])
         
         ticket_details = event_schema.Ticket_Response_Schema(ticket_type=updated_data["ticket_type"],ticket_fare=updated_data["ticket_fare"],total_tickets=updated_data["total_tickets"],available_tickets=available_tickets)
         
@@ -312,9 +311,12 @@ class Events_Class:
     
     def get_events_list(self):
 
-        events_list = self.event_dao.fetch_records_from_model()
+        events_list = self.event_dao.get_events()
 
-        return events_list if events_list else []
+        if events_list:
+            return[{**event_data, "event_id" : binaryConversion.binary_to_str(event_data["event_id"])} for event_data in events_list]
+        
+        return []
 
     def get_event_by_id(self, byte_event_id, byte_user_id):
 
@@ -330,14 +332,16 @@ class Events_Class:
             byte_event_id, byte_user_id
         )
         
-        available_tickets = self.bookings_service.get_available_bookings
+        
+        available_tickets = self.bookings_service.get_available_bookings(event_data["event_id"],event_data["total_tickets"])
         
         ticket_details = event_schema.Ticket_Response_Schema(ticket_type=event_data["ticket_type"],ticket_fare=event_data["ticket_fare"],total_tickets=event_data["total_tickets"],available_tickets=available_tickets)
         
         participant_details = event_schema.Participant_Schema(participant_type=event_data["participant_type"],participant_count=event_data["participant_count"] )
         
-        address_details = event_schema.Event_Location_Model_Schema(full_location=event_data["full_location"],latitude=event_data["latitude"],longitude=event_data["longitude"])
+        address_details = event_schema.Address_Response_Schema(full_location=event_data["full_location"],latitude=event_data["latitude"],longitude=event_data["longitude"],landmark=event_data["landmark"])
         
+        event_data["event_id"] = binaryConversion.binary_to_str(event_data["event_id"])
         return {**event_data,"address_details":address_details,"participant_details" : participant_details,"ticket_details" : ticket_details,"register_state" : booking_status }
         
 

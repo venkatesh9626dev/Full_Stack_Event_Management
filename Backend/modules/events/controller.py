@@ -2,6 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from . import schema
 
+from typing import List
+
 from utils import binaryConversion
 
 from .service import category_service, events_service, bookings_service
@@ -27,8 +29,17 @@ async def create_event(
     return schema.Event_Response_Schema(**event_create_response)
 
 
-@events_router.put("/{event_id}")
+@events_router.put("/")
 async def update_event_details(
+    user_binary_id: bytes = Depends(get_current_user),
+    update_data : schema.Event_Update_Request_Schema = Depends(get_update_event_data)
+):
+    updated_data = events_service.update_event(update_data=update_data.model_dump(),creator_id=user_binary_id)
+
+    return schema.Event_Base_Response_Schema(**updated_data)
+
+@events_router.patch("/")
+async def update_event_detail(
     user_binary_id: bytes = Depends(get_current_user),
     update_data : schema.Event_Update_Request_Schema = Depends(get_update_event_data)
 ):
@@ -36,20 +47,12 @@ async def update_event_details(
 
     return schema.Event_Base_Response_Schema(**updated_data)
 
-@events_router.patch("/{event_id}")
-async def update_event_detail(
-    user_binary_id: bytes = Depends(get_current_user),
-    update_data : schema.Event_Update_Request_Schema = Depends(get_update_event_data)
-):
-    pass
 
-
-@events_router.get("/")
+@events_router.get("/",response_model=List[schema.Event_Base_Response_Schema])
 async def get_events():
     events_list = events_service.get_events_list()
 
-    return schema.Events_Response_Schema(events_list=events_list)
-
+    return [schema.Event_Base_Response_Schema(**event.dict()) for event in events_list]
 
 @events_router.get("/category/{category}")
 async def get_events_by_category(
@@ -69,7 +72,7 @@ async def get_event_by_id(
         byte_event_id=binary_event_id, byte_user_id=user_binary_id
     )
     
-    return schema.Event_Response_Schema(**event_data,event_id= event_id)
+    return schema.Event_Response_Schema(**event_data)
 
 @events_router.get("/{event_id}/bookings")
 def get_event_bookings(event_id : str, creator_id : bytes = Depends(get_current_user)):

@@ -18,10 +18,11 @@ from sqlalchemy import (
     BINARY,
     UniqueConstraint,
     BOOLEAN,
+    select
 )
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.sql import func
-
+from sqlalchemy.orm import relationship
 from . import schema
 from shared.generic_dao import Base_Dao
 
@@ -46,8 +47,9 @@ class Event_Location_Model(Base):
 
     __tablename__ = "event_location"
 
-    address_id = Column(Integer, autoincrement=True, nullable=False, primary_key=True)
+    location_id = Column(Integer, autoincrement=True, nullable=False, primary_key=True)
     full_location = Column(String(255), nullable=False, unique=True)
+    
     latitude = Column(Float, nullable=False)
     longitude = Column(Float, nullable=False)
     created_at = Column(TIMESTAMP, nullable=False, server_default=func.now())
@@ -80,18 +82,15 @@ class Events_Model(Base):
     )  # Updates on modification
 
     category_id = Column(
-        Integer, ForeignKey("event_categories.category_id"), nullable=False
+        Integer, ForeignKey("event_categories.category_id"), nullable=False, index=True
     )
     address_id = Column(
-        Integer, ForeignKey("event_location.address_id"), nullable=False
+        Integer, ForeignKey("event_location.location_id"), nullable=False, index=True
     )
-    creator_id = Column(BINARY(16), ForeignKey("users.user_id"), nullable=False)
+    creator_id = Column(BINARY(16), ForeignKey("users.user_id"), nullable=False, index=True)
 
 
     __table_args__ = (
-        CheckConstraint(
-            "ticket_fare > 0", name="check_ticket_fare_positive"
-        ),  # Ensures non-negative fare
         CheckConstraint(
             "total_tickets > 0", name="check_total_tickets_positive"
         ),  # Ensures at least 1 ticket
@@ -100,17 +99,16 @@ class Events_Model(Base):
         ),  # Ensures at least 1 ticket
     )
 
-
 class Event_Bookings_Model(Base):
 
     __tablename__ = "event_bookings"
 
     booking_id = Column(Integer, autoincrement=True, primary_key=True)
     event_id = Column(
-        BINARY(16), ForeignKey("events.event_id", ondelete="CASCADE"), nullable=False
+        BINARY(16), ForeignKey("events.event_id", ondelete="CASCADE"), nullable=False, index=True
     )
     attendee_id = Column(
-        BINARY(16), ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False
+        BINARY(16), ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False, index=True
     )
     booking_status = Column(BOOLEAN, nullable=False)
     scanned_at = Column(TIMESTAMP, nullable=True)
@@ -124,18 +122,21 @@ class Event_Bookings_Model(Base):
 
 class Event_Dao(Base_Dao):
 
-    def __init__(self, event_model, location_model):
+    def __init__(self, event_model, location_model, category_model):
         super().__init__(event_model)
         self.location_model = location_model
+        self.category_model = category_model
+        
+        
         
     def get_event_data_by_id(self, event_id):
         
         try:
             with Base_Dao.session() as db:
                 
-                event_data_tuple = db.query(self.model,self.location_model).join(self.location_model,self.model.address_id == self.location_model.address_id).filter(self.model.event_id == event_id).first()
+                event_data_tuple = db.query(self.model,self.location_model,self.category_model.category_name).join(self.location_model,self.model.address_id == self.location_model.address_id).join(self.category_model,self.model.category_id == self.category_model.category_id).filter(self.model.event_id == event_id).first()
                 
-                return {**event_data_tuple[0]._asdict(), **event_data_tuple[1]._asdict()}
+                return {**event_data_tuple[0].__dict__, **event_data_tuple[1].__dict__,"category_name" : event_data_tuple[2]}
 
                 
         except SQLAlchemyError as e:
@@ -146,19 +147,32 @@ class Event_Dao(Base_Dao):
         
         try:
             with Base_Dao.session() as db:
+                
+                stmt = select(
+    self.model.event_name,
+    self.model.event_description,
+    self.model.event_id, 
+    self.model.event_image_url,
+    self.model.event_agenda,
+    self.category_model.category_name,
+    self.model.event_start_date_time, 
+    self.model.event_end_date_time,
+    self.model.ticket_fare, 
+    self.model.ticket_type, 
+    self.model.total_tickets,
+    self.location_model.full_location,
+    self.location_model.latitude,
+    self.location_model.longitude
+).join(self.location_model, self.model.address_id == self.location_model.address_id)\
+.join(self.category_model, self.model.category_id == self.category_model.category_id)\
+ .filter(self.model.event_start_date_time > datetime.now())
 
-                records_object_list = (
-                    db.query(self.model.event_name,self.model.event_id,self.model.event_image,self.model.event_start_date_time,self.model.event_end_date_time,self.model.ticket_fare,self.model.ticket_type,self.location_model.full_location)
-                    .join(self.location_model, self.model.address_id == self.location_model.address_id)
-                    .filter(self.model.event_start_date_time  > datetime.now())
-                    .mappings()
-                    .all()
-                )
+                records_object_tuple =   db.execute(stmt).mappings().all()
 
-                if not records_object_list:
+                if not records_object_tuple:
                     return []
 
-                records_list = [record.__dict__ for record in records_object_list]
+                records_list = [dict(record) for record in records_object_tuple]
 
                 return records_list
         except SQLAlchemyError as e:
@@ -166,6 +180,7 @@ class Event_Dao(Base_Dao):
 
 
 class Event_Bookings_Dao(Base_Dao):
+    
 
     def __init__(self, bookings_model,event_model,profile_model):
         super().__init__(bookings_model)
@@ -174,19 +189,36 @@ class Event_Bookings_Dao(Base_Dao):
 
     def get_user_bookings_by_event_ids(self, attendee_id, event_id_list : list): # This is used for searching bookings by event name or event_id
 
+        if not event_id_list:
+            return []
         try:
             with Base_Dao.session() as db:
 
-                bookings_tuple = (
-                    db.query(self.model.booking_id,self.event_model.event_id,self.event_model.event_name,self.event_model.event_image,self.event_model.event_start_date_time,self.event_model.event_end_date_time,self.event_model.ticket_fare)
-                    .join(self.event_model , self.model.event_id == self.event_model.event_id).filter(self.model.attendee_id == attendee_id and self.model.booking_status == True and self.model.event_id in(event_id_list)).mappings().all()
+                stmt = (
+                select(
+                    self.model.booking_id,
+                    self.event_model.event_id,
+                    self.event_model.event_name,
+                    self.event_model.event_image,
+                    self.event_model.event_start_date_time,
+                    self.event_model.event_end_date_time,
+                    self.event_model.ticket_fare,
                 )
+                .join(self.event_model, self.model.event_id == self.event_model.event_id)
+                .where(
+                    (self.model.attendee_id == attendee_id)
+                    & (self.model.booking_status == True)
+                    & (self.model.event_id.in_(event_id_list))
+                )
+                )
+
+                bookings_tuple = db.execute(stmt).mappings().all()
 
                 if not bookings_tuple:
 
                     return []
                 
-                return list(bookings_tuple)
+                return [dict(record) for record in bookings_tuple]
             
 
         except SQLAlchemyError as e:
@@ -199,20 +231,29 @@ class Event_Bookings_Dao(Base_Dao):
 
             with Base_Dao.session() as db:
 
-                bookings_tuple = (
-                    db.query(self.model.booking_id,self.event_model.event_id,self.event_model.event_name,self.event_model.event_image,self.event_model.event_start_date_time,self.event_model.event_end_date_time,self.event_model.ticket_fare)
-                    .join(self.event_model , self.model.event_id == self.event_model.event_id)
-                    .filter(
-                        getattr(self.model, "attendee_id") == attendee_id
-                        and getattr(self.model, "booking_status") == True
+                stmt = (
+                    select(
+                        self.model.booking_id,
+                        self.event_model.event_id,
+                        self.event_model.event_name,
+                        self.event_model.event_image,
+                        self.event_model.event_start_date_time,
+                        self.event_model.event_end_date_time,
+                        self.event_model.ticket_fare,
                     )
-                    .all()
+                    .join(self.event_model, self.model.event_id == self.event_model.event_id)
+                    .where(
+                        (getattr(self.model, "attendee_id") == attendee_id)
+                        & (getattr(self.model, "booking_status") == True)
+                    )
                 )
+
+                bookings_tuple = db.execute(stmt).mappings().all()                
 
                 if not bookings_tuple:
                     return []
                 
-                return list(bookings_tuple)
+                return [dict(record) for record in bookings_tuple]
 
         except SQLAlchemyError as e:
 
@@ -224,24 +265,57 @@ class Event_Bookings_Dao(Base_Dao):
 
             with Base_Dao.session() as db:
 
-                bookings_tuple = (
-                    db.query(self.model.booking_id,self.profile_model.first_name,self.profile_model.last_name,self.profile_model.profile_id).join(self.profile_model, self.model.attendee_id == self.profile_model.user_id)  
-    .filter( self.model.booking_status == True)
-    .mappings()
-    .all()
-                )
+                stmt = (
+                    select(
+                        self.model.booking_id,
+                        self.profile_model.first_name,
+                        self.profile_model.last_name,
+                        self.profile_model.profile_id,
+                    )
+                    .join(self.profile_model, self.model.attendee_id == self.profile_model.user_id)
+                    .where(self.model.event_id == event_id ,self.model.booking_status == True)
+)
+
+                bookings_tuple = db.execute(stmt).mappings().all()
 
                 if not bookings_tuple:
                     return []
 
-                return list(bookings_tuple)
+                return [dict(record) for record in bookings_tuple]
 
         except SQLAlchemyError as e:
 
             raise e
         
+    def get_user_booking(self, event_id, attendee_id):
+        
+        try:
+            with Base_Dao.session() as db:
+                
+                booking_data = db.query(self.model).filter(self.model.event_id == event_id, self.model.attendee_id == attendee_id).first()
+                
+                if not booking_data:
+                    return None
+                
+                return booking_data.__dict__
+            
+        except SQLAlchemyError as e:
+
+            raise e
+        
     def get_event_bookings_count(self,event_id): # This is to find the count of total bookings
-        pass
+        
+        try:
+            with Base_Dao.session() as db:
+            
+                bookings_count = db.query(func.count(self.model.booking_id)).filter(self.model.event_id == event_id , self.model.booking_status == True).scalar()
+                
+                return bookings_count
+        
+        except SQLAlchemyError as e:
+
+            raise e
+
 
 
 class Category_Dao(Base_Dao):
@@ -258,5 +332,5 @@ class Location_Dao(Base_Dao):
 
 category_dao = Category_Dao(Event_Category_Model)
 location_dao = Location_Dao(Event_Location_Model)
-events_dao = Event_Dao(Events_Model,Event_Location_Model)
+events_dao = Event_Dao(Events_Model,Event_Location_Model,Event_Category_Model)
 bookings_dao = Event_Bookings_Dao(Event_Bookings_Model,Events_Model,ProfileModel)

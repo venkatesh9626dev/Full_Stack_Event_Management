@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from shared import response_schema
+from contextlib import asynccontextmanager
 import settings as app_settings
 from database import engine, Base
 from shared import response_schema
@@ -13,11 +14,12 @@ from shared.generic_error_handling import Generic_Error_Handling
 from modules.users.controller import users_router
 from modules.events.controller import events_router
 
-Base.metadata.create_all(bind=engine)  # To autocreate SQL Tables
-
+Base.metadata.create_all(engine)
 
 app = FastAPI(title=app_settings.settings.APP_NAME)
 
+
+    
 #  Enable CORS
 app.add_middleware(
     CORSMiddleware,

@@ -40,27 +40,12 @@ class UsersModel(Base):
     password = Column(String(255), nullable=False)
     created_at = Column(TIMESTAMP, nullable=False, server_default=func.now())
 
-    # relationship with profile table
-
-    profile = relationship(
-        "ProfileModel",
-        back_populates="users",
-        uselist=False,
-        cascade="all, delete-orphan",
-    )
-    events = relationship(
-        "Events_Model", cascade="all, delete-orphan", back_populates="creator"
-    )
-    bookings = relationship(
-        "Event_Bookings_Model", cascade="all, delete-orphan", back_populates="attendee"
-    )
-
 
 class ProfileModel(Base):
     __tablename__ = "profile"
 
     profile_id = Column(BINARY(16), primary_key=True, nullable=False)
-    user_id = Column(BINARY(16), ForeignKey("users.user_id"), nullable=False)
+    user_id = Column(BINARY(16), ForeignKey("users.user_id"), nullable=False, index=True)
     first_name = Column(String(50), nullable=False)
     last_name = Column(String(50), nullable=False)
     college_name = Column(String(100), nullable=False)

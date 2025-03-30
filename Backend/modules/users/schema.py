@@ -148,10 +148,9 @@ class Profile_Update_Request_Schema(BaseModel):
     ]
     ] = None
 
-    @model_validator(mode="before")
-    @classmethod
-    def check_at_least_one_field(cls, data):
-        return Schema_Validation.check_at_least_one_field(data)    
+    @model_validator(mode="after")
+    def check_at_least_one_field(self):
+        return Schema_Validation.check_at_least_one_field(self)    
 
 
 __all__ = [

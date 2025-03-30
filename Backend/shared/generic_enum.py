@@ -18,7 +18,6 @@ class Ticket_Type_Enum(str, Enum):
                     return member
         return None
 
-
 class Ticket_Status(str, Enum):
 
     VALID = "valid"

@@ -1,37 +1,17 @@
 from . import models
 from fastapi import HTTPException, status
 from shared import generic_enum
-from datetime import date, datetime
+from datetime import datetime
 from modules.users.models import profile_dao
 
 
 class TimeDate_Validator_Class:
 
-    def check_event_datetime(self, event_start_datetime, event_end_datetime):
+   
 
-        current_datetime = datetime.now()
-
-        if event_start_datetime <= current_datetime:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Event start datetime should be greater than current datetime",
-            )
-        elif event_end_datetime <= current_datetime:
-
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Event start time should be greater than current time or event date should be greater than or equal to today's date",
-            )
-        elif event_start_datetime == event_end_datetime:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Event start datetime and Event end datetime shouldn't be same",
-            )
-
-    def event_registration_expiry_check(self, event_start_datetime):
-
+    def event_registration_expiry_check(self, event_start_date_time):
         current_time = datetime.now()
-        if current_time > event_start_datetime:
+        if current_time > event_start_date_time:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="The event registration is closed",
@@ -79,7 +59,7 @@ class Creator_Validator_Class:
             
     def validate_creator_match(self, event_id, creator_id):
         
-        event = self.events_dao.get_record(field_name="event_id", field_value = event_id)
+        event = self.events_dao.fetch_record(field_name="event_id", field_value = event_id)
         
         if event["creator_id"] != creator_id:
             HTTPException(status_code=status.HTTP_403_FORBIDDEN,detail="Only event creator can see their participant details")
@@ -92,15 +72,9 @@ class Events_Validator_Class:
         self.time_validator = time_validator
         self.creator_validator = creator_validator
 
-    def validate_event_details(self, event_data: dict, creator_id: bytes):
-        event_start_datetime = event_data["event_start_date_time"]
-        event_end_datetime = event_data["event_end_date_time"]
+    def validate_event_authorization(self, event_data: dict, creator_id: bytes):
 
-        self.time_validator.check_event_datetime(
-            event_start_datetime, event_end_datetime
-        )
-
-        event_ticket_type = event_data["ticket_details"]["ticket_type"]
+        event_ticket_type = event_data["ticket_type"]
 
         if event_ticket_type == generic_enum.Ticket_Type_Enum.PAID:
 
@@ -108,7 +82,7 @@ class Events_Validator_Class:
     
     def validate_event_exists(self, event_id):
         
-        event = self.events_dao.get_record(field_name="event_id", field_value = event_id)
+        event = self.event_dao.fetch_record(field_name="event_id", field_value = event_id)
         
         if not event:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail="Event not exist to see the booking data")

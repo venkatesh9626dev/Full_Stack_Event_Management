@@ -1,15 +1,17 @@
-from pydantic import BaseModel, Field, model_validator, ConfigDict, field_validator
+from pydantic import BaseModel, Field, model_validator, ConfigDict, ValidationError
 from typing import List
 from datetime import date, datetime
 from typing import Optional
 
 from decimal import Decimal
 
-from shared.generic_validation import Schema_Validation
+from shared.generic_validation import Schema_Validation, event_request_validation
 
 from shared import generic_enum
 
-from utils import binaryConversion
+from fastapi import HTTPException
+
+
 
 # Category Schema
 
@@ -38,22 +40,14 @@ class Participant_Schema(BaseModel):
     participant_type: generic_enum.Participant_Enum = Field(...)
     participant_count: int = Field(1, gt=0)
 
-    @model_validator(mode="before")
-    @classmethod
-    def check_participant_details(cls, details):
-        return Schema_Validation.check_participant_details(details)
 
 
 class Ticket_Schema(BaseModel):
 
     ticket_type: generic_enum.Ticket_Type_Enum = Field(...)
-    ticket_fare: Decimal | None = Field(None, gt=0, decimal_places=2, max_digits=10)
+    ticket_fare: Decimal = Field(...,decimal_places=2, max_digits=10)
     total_tickets: int = Field(..., gt=0)
 
-    @model_validator(mode="before")
-    @classmethod
-    def check_ticket_details(cls, data):
-        return Schema_Validation.check_ticket_details(data)
 
 
 # Address Schema
@@ -88,7 +82,7 @@ class Event_Base_Schema(BaseModel):
         max_length=1000,
         description="Event description must be 10-1000 characters",
     )
-    event_image: str = Field(
+    event_image_url: str = Field(
         ...,
         pattern=r"^(http|https)://.*\.(jpg|jpeg|png|gif)$",
         description="Must be a valid image URL",
@@ -97,10 +91,10 @@ class Event_Base_Schema(BaseModel):
         ..., min_length=5, description="Agenda must be at least 5 characters long"
     )
     event_start_date_time: datetime = Field(
-        ..., description="Event date should be in YYYY-MM-DD format"
+        ..., description="Start date and time in ISO 8601 format (e.g., 2025-04-15T09:00:00Z)"
     )
     event_end_date_time: datetime = Field(
-        ..., description="Start time must be a valid datetime format"
+        ..., description="End date and time in ISO 8601 format (e.g., 2025-04-15T12:00:00Z)"
     )
 
     model_config = ConfigDict(str_strip_whitespace=True)
@@ -109,18 +103,25 @@ class Event_Base_Schema(BaseModel):
 # create event Request Schema
 
 
-class Event_Request_Schema(Event_Base_Schema):
+class Event_Request_Schema(Event_Base_Schema,Address_Schema,Ticket_Schema,Participant_Schema):
     category_name: str = Field(
         ...,
         min_length=3,
         max_length=50,
         description="Category name must be between 3-50 characters",
     )
-    address_details: Address_Schema = Field(...)
-    ticket_details: Ticket_Schema = Field(...)
-    participant_details: Participant_Schema = Field(...)
 
-
+    
+    @model_validator(mode="before")
+    @classmethod
+    def validate_create_event_request(cls, values):
+        errors = event_request_validation.validate_data(values)
+       
+        if errors:
+            raise HTTPException(status_code=422,detail=errors)
+        
+        return values
+        
 class Event_Update_Request_Schema(BaseModel):
     event_id: str = Field(...)
     event_name: str = Field(
@@ -144,16 +145,10 @@ class Event_Update_Request_Schema(BaseModel):
         description="Must be a valid image URL",
     )
 
-    @model_validator(mode="before")
-    @classmethod
-    def check_at_least_one_field(cls, data):
+    @model_validator(mode="after")
+    def check_at_least_one_field(self):
         
-        temp_event_id = data["event_id"]
-        del data["event_id"]
-        
-        validated_data = Schema_Validation.check_at_least_one_field(data)
-        
-        return {**validated_data,"event_id" : temp_event_id}
+        return Schema_Validation.check_at_least_one_field(self)
 
     model_config = ConfigDict(extra="ignore", str_strip_whitespace=True)
 
@@ -170,7 +165,7 @@ class Event_Model_Schema(Event_Base_Schema, Participant_Schema, Ticket_Schema):
     address_id: int = Field(..., gt=0)
     creator_id: bytes = Field(...)
 
-
+    model_config = ConfigDict(extra="ignore")
 # Event location Model
 
 
@@ -193,12 +188,11 @@ class Event_Category_Model_Schema(Category_Schema):
 
 class Booking_Model_Schema(BaseModel):
 
-    booking_id: bytes = Field(..., description="Unique ID for the booking .")
     event_id: bytes = Field(
-        ..., min_length=32, max_length=32, description="UUID (hex) of the event."
+        ..., description="binary id of the event."
     )
     attendee_id: bytes = Field(
-        ..., min_length=32, max_length=32, description="UUID (hex) of the attendee."
+        ..., description="binary id of the attendee."
     )
     booking_status: bool = Field(
         ..., description="True if the attendee is confirmed, False otherwise."
@@ -213,30 +207,30 @@ class Booking_Model_Schema(BaseModel):
 
 class Ticket_Response_Schema(Ticket_Schema):
     available_tickets: int = Field(..., gt=-1)
+    
+    
+class Address_Response_Schema(Event_Location_Model_Schema):
+    landmark : str
+    
 
 
 # Events Response Schema
 
 # This is for the event response before login and for home page
 
+
 class Event_Base_Response_Schema(Event_Base_Schema):
     event_id : str = Field(...)
-    category_name: str = Field(
-        ...,
-        min_length=3,
-        max_length=50,
-        description="Category name must be between 3-50 characters",
-    )
-    address_details: Address_Schema = Field(...)
-    ticket_details: Ticket_Response_Schema = Field(...)
-    participant_details: Participant_Schema = Field(...)
-    
-    class Config:
-        extra = "ignore"
+    category_name: str = Field(...)
+    ticket_fare : Decimal = Field(...)
+    ticket_type : generic_enum.Ticket_Type_Enum = Field(...)
+    total_tickets : int = Field(...)
+    full_location : str = Field(...)
+    latitude : float = Field(...)
+    longitude : float = Field(...)
 
+    model_config = ConfigDict(extra="ignore")
 
-class Events_Response_Schema(BaseModel):
-    events_list: List[Event_Base_Response_Schema] = Field(default_factory=list)
 
 
 # Event Response Schema
@@ -244,8 +238,14 @@ class Events_Response_Schema(BaseModel):
 # This is for the event response schema after login and to event details page
 
 
-class Event_Response_Schema(Event_Base_Response_Schema):
+class Event_Response_Schema(Event_Base_Schema):
+    address_details : Address_Response_Schema = Field(...)
+    ticket_details : Ticket_Response_Schema = Field(...)
+    participant_details : Participant_Schema = Field(...)
+    
     register_state: generic_enum.Registration_Status_Enum = Field(...)
+    
+    model_config = ConfigDict(extra="ignore")
 
 class Booking_Request_Schema(BaseModel):
     event_id : str
