@@ -57,18 +57,17 @@ class Profile_Schema(BaseModel):
         Annotated[str, StringConstraints(pattern=r"^(male|female|other)$")]
     ] = None
 
-
     about_me: Optional[
         Annotated[
             str, StringConstraints(min_length=10, max_length=500, strip_whitespace=True)
         ]
     ] = None
-    
+
     photo_url: Optional[
-    Annotated[
-        str,
-        StringConstraints(pattern=r"^(https?:\/\/.*\.(?:png|jpg|jpeg|gif|svg))$"),
-    ]
+        Annotated[
+            str,
+            StringConstraints(pattern=r"^(https?:\/\/.*\.(?:png|jpg|jpeg|gif|svg))$"),
+        ]
     ] = None
 
 
@@ -83,27 +82,29 @@ class Profile_Create_Request_Schema(Profile_Schema):
     phone_number: Optional[
         Annotated[str, StringConstraints(pattern=r"^\+?[0-9]{10,15}$")]
     ] = None
-    
-    
+
     merchant_id: Optional[str] = Field(None)
 
     @field_validator("phone_number", mode="before")
     @classmethod
     def strip_phone_number(cls, value):
         return Schema_Validation.strip_phone_number(value)
-    
+
 
 # This is for the user who see their own profile
+
 
 class Profile_Response_Schema(Profile_Create_Request_Schema):
     created_at: datetime = Field(..., description="Profile creation timestamp.")
     updated_at: datetime = Field(..., description="Profile Updated Timestamp")
+
 
 # This is for the public who see the other users profile
 
 
 class User_Profile_Response_Schema(Profile_Schema):
     pass
+
 
 # User Profile update and patch schema
 
@@ -140,18 +141,18 @@ class Profile_Update_Request_Schema(BaseModel):
     phone_number: Optional[
         Annotated[str, StringConstraints(pattern=r"^\+?[0-9]{10,15}$")]
     ] = None
-    
+
     photo_url: Optional[
-    Annotated[
-        str,
-        StringConstraints(pattern=r"^(https?:\/\/.*\.(?:png|jpg|jpeg|gif|svg))$"),
-    ]
+        Annotated[
+            str,
+            StringConstraints(pattern=r"^(https?:\/\/.*\.(?:png|jpg|jpeg|gif|svg))$"),
+        ]
     ] = None
     merchant_id: Optional[str] = Field(None)
 
     @model_validator(mode="after")
     def check_at_least_one_field(self):
-        return Schema_Validation.check_at_least_one_field(self)    
+        return Schema_Validation.check_at_least_one_field(self)
 
 
 __all__ = [
@@ -160,8 +161,7 @@ __all__ = [
     "Profile_Create_Request_Schema",
     "Profile_Create_Model_Schema",
     "Profile_Create_Response_Schema",
-    "Profile_Update_Model_Schema"
-    "Profile_Update_Request_Schema",
+    "Profile_Update_Model_SchemaProfile_Update_Request_Schema",
     "Profile_Update_Response_Schema",
     "User_Profile_Response_Schema",
     "Profile_Response_Schema",

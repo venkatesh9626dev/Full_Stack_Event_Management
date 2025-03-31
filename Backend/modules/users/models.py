@@ -45,7 +45,9 @@ class ProfileModel(Base):
     __tablename__ = "profile"
 
     profile_id = Column(BINARY(16), primary_key=True, nullable=False)
-    user_id = Column(BINARY(16), ForeignKey("users.user_id"), nullable=False, index=True)
+    user_id = Column(
+        BINARY(16), ForeignKey("users.user_id"), nullable=False, index=True
+    )
     first_name = Column(String(50), nullable=False)
     last_name = Column(String(50), nullable=False)
     college_name = Column(String(100), nullable=False)
@@ -61,15 +63,12 @@ class ProfileModel(Base):
     )  # Updates on modification
 
 
-
 class Auth_Dao(Base_Dao):
-
     def __init__(self, model):
         super().__init__(model)
 
 
 class Profile_Dao(Base_Dao):
-
     def __init__(self, model):
         super().__init__(model)
 

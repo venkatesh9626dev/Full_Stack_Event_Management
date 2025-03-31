@@ -4,7 +4,6 @@ from sqlalchemy.sql import func
 
 
 class Transactions(Base):
-
     transaction_id = Column(BINARY, primary_key=True)
     booking_id = Column(
         Integer, ForeignKey("Event_Bookings_Model.booking_id"), nullable=False

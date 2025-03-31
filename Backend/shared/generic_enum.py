@@ -4,7 +4,6 @@ from enum import Enum
 
 
 class Ticket_Type_Enum(str, Enum):
-
     PAID = "paid"
     FREE = "free"
 
@@ -18,14 +17,13 @@ class Ticket_Type_Enum(str, Enum):
                     return member
         return None
 
-class Ticket_Status(str, Enum):
 
+class Ticket_Status(str, Enum):
     VALID = "valid"
     USED = "used"
 
 
 class Participant_Enum(str, Enum):
-
     GROUP = "group"
     INDIVIDUAL = "individual"
 
@@ -39,12 +37,14 @@ class Participant_Enum(str, Enum):
                     return member
         return None
 
-class Registration_Status_Enum(str,Enum):
-    
+
+class Registration_Status_Enum(str, Enum):
     REGISTERED = "registered"
     NOT_REGISTERED = "not_registered"
 
+
 # Cloudinary Based Enum
+
 
 class AllowedFileTypes(str, Enum):
     JPEG = "image/jpeg"

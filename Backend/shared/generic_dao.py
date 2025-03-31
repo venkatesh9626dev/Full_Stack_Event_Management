@@ -3,7 +3,6 @@ from sqlalchemy.exc import SQLAlchemyError
 
 
 class Base_Dao:
-
     session = SessionLocal
 
     def __init__(self, model):
@@ -22,7 +21,6 @@ class Base_Dao:
 
         try:
             with Base_Dao.session() as db:
-
                 record_object = (
                     db.query(self.model)
                     .filter(getattr(self.model, field_name) == field_value)
@@ -31,7 +29,6 @@ class Base_Dao:
 
                 return record_object.__dict__ if record_object else None
         except SQLAlchemyError as e:
-
             raise e
 
     def fetch_records_by_field_name(self, field_name, field_value):
@@ -47,7 +44,6 @@ class Base_Dao:
 
         try:
             with Base_Dao.session() as db:
-
                 records_object_list = (
                     db.query(self.model)
                     .filter(getattr(self.model, field_name) == field_value)
@@ -64,10 +60,8 @@ class Base_Dao:
             raise e
 
     def fetch_records_by_list(self, field_name, field_value_list: list):
-
         try:
             with Base_Dao.session() as db:
-
                 data_object_list = (
                     db.query(self.model)
                     .filter(getattr(self.model, field_name) in (field_value_list))
@@ -97,7 +91,6 @@ class Base_Dao:
 
         try:
             with Base_Dao.session() as db:
-
                 records_object_list = db.query(self.model).all()
 
                 if not records_object_list:
@@ -111,31 +104,26 @@ class Base_Dao:
             raise e
 
     def create_record(self, data: dict):
-
         try:
             with Base_Dao.session() as db:
-
                 new_data = self.model(**data)
 
                 db.add(new_data)
 
                 db.commit()
-                
+
                 db.refresh(new_data)
 
                 return new_data.__dict__
 
         except SQLAlchemyError as e:
-
             db.rollback()
 
             raise e
 
     def update_record(self, data, field_name, field_value):
-
         try:
             with self.session() as db:
-
                 data_row = (
                     db.query(self.model)
                     .filter(getattr(self.model, field_name) == field_value)
@@ -152,7 +140,6 @@ class Base_Dao:
                 return data_row.__dict__
 
         except SQLAlchemyError as e:
-
             db.rollback()
 
             raise e

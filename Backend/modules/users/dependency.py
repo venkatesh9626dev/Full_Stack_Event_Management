@@ -8,15 +8,17 @@ from fastapi import File, UploadFile
 from settings import cipher
 
 # Import your existing schemas
-from modules.users.schema import Profile_Create_Request_Schema, Profile_Update_Request_Schema
-
+from modules.users.schema import (
+    Profile_Create_Request_Schema,
+    Profile_Update_Request_Schema,
+)
 
 
 def get_profile_create_data(
     first_name: str = Form(...),
     last_name: str = Form(...),
     college_name: str = Form(...),
-    image_file :  UploadFile = File(...),
+    image_file: UploadFile = File(...),
     gender: str = Form(None),
     about_me: str = Form(None),
     date_of_birth: date = Form(None),
@@ -26,17 +28,16 @@ def get_profile_create_data(
     """
     Extracts form data and returns a validated Profile_Create_Request_Schema object.
     """
-    
+
     profile_image_url = upload_file(image_file)
-    
+
     if merchant_id:
         merchant_id = cipher.encrypt(merchant_id.encode())
-    
-    
+
     return Profile_Create_Request_Schema(
         first_name=first_name,
         last_name=last_name,
-        photo_url = profile_image_url,
+        photo_url=profile_image_url,
         college_name=college_name,
         gender=gender,
         about_me=about_me,
@@ -44,11 +45,12 @@ def get_profile_create_data(
         phone_number=phone_number,
         merchant_id=merchant_id,
     )
-    
+
+
 def get_profile_update_data(
     first_name: str = Form(None),
     last_name: str = Form(None),
-    image_file :  UploadFile = File(None),
+    image_file: UploadFile = File(None),
     college_name: str = Form(None),
     gender: str = Form(None),
     about_me: str = Form(None),
@@ -61,14 +63,14 @@ def get_profile_update_data(
     """
     if image_file:
         profile_image_url = upload_file(image_file)
-    
+
     if merchant_id:
         merchant_id = cipher.encrypt(merchant_id.encode())
-    
+
     return Profile_Update_Request_Schema(
         first_name=first_name,
         last_name=last_name,
-        photo_url = profile_image_url,
+        photo_url=profile_image_url,
         college_name=college_name,
         gender=gender,
         about_me=about_me,
@@ -76,5 +78,3 @@ def get_profile_update_data(
         phone_number=phone_number,
         merchant_id=merchant_id,
     )
-        
-

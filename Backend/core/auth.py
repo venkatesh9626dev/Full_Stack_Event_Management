@@ -19,7 +19,6 @@ class Hashing:
 
 
 class Jwt_Token:
-
     # Create JWT Token
     @classmethod
     def create_access_token(cls, data: dict):

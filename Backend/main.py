@@ -17,26 +17,21 @@ from modules.events.controller import events_router
 Base.metadata.create_all(bind=engine)
 
 
-
 app = FastAPI(title=app_settings.settings.APP_NAME)
 
 
-    
 #  Enable CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173/"
-    ],
+    allow_origins=["http://localhost:5173/"],
     allow_credentials=True,
-    allow_methods=["*"],  
-    allow_headers=["*"]
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 
 class Entry_Middleware(BaseHTTPMiddleware):
     async def dispatch(self, request, call_next):
-
         try:
             response = await call_next(request)
 
@@ -50,7 +45,6 @@ class Entry_Middleware(BaseHTTPMiddleware):
             return response
 
         except SQLAlchemyError as e:
-
             error_details = Generic_Error_Handling.db_exception_handling(e)
 
             return JSONResponse(
