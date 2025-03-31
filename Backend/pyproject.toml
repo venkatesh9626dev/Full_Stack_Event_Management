@@ -17,8 +17,6 @@ dependencies = [
     "pydantic[email]>=2.10.6",
     "bcrypt==4.0.1",
     "requests>=2.32.3",
-    "black>=25.1.0",
-    "isort>=6.0.1",
     "ruff>=0.11.2",
     "cloudinary>=1.43.0",
     "python-multipart>=0.0.20",

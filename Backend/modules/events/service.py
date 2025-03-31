@@ -150,11 +150,11 @@ class Bookings_Class:
     def get_event_booking_data(self, event_id, creator_id):
         validator.events_validator.validate_event_exists(event_id)
 
-        validator.creator_validator.validate_creator(event_id, creator_id)
+        validator.creator_validator.validate_creator_match(event_id, creator_id)
 
         event_bookings_list = self.bookings_dao.get_event_booking_data(event_id)
 
-        if event_bookings_list:
+        if not event_bookings_list:
             return []
         return [
             {**data, "profile_id": binaryConversion.binary_to_str(data["profile_id"])}

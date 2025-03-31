@@ -9,6 +9,7 @@ from pydantic import (
 from datetime import date, datetime
 from typing import Optional, Annotated
 
+from shared import generic_enum
 
 from shared.generic_validation import Schema_Validation
 
@@ -53,9 +54,7 @@ class Profile_Schema(BaseModel):
         str, StringConstraints(min_length=3, max_length=100, strip_whitespace=True)
     ]
 
-    gender: Optional[
-        Annotated[str, StringConstraints(pattern=r"^(male|female|other)$")]
-    ] = None
+    gender: generic_enum.Gender_Enum = None
 
     about_me: Optional[
         Annotated[
@@ -126,9 +125,7 @@ class Profile_Update_Request_Schema(BaseModel):
         Annotated[str, StringConstraints(min_length=3, max_length=100)]
     ] = None
 
-    gender: Optional[
-        Annotated[str, StringConstraints(pattern=r"^(male|female|other)$")]
-    ] = None
+    gender: generic_enum.Gender_Enum = None
 
     about_me: Optional[
         Annotated[str, StringConstraints(min_length=10, max_length=500)]
@@ -160,7 +157,6 @@ __all__ = [
     "Auth_Response_Schema",
     "Profile_Create_Request_Schema",
     "Profile_Create_Model_Schema",
-    "Profile_Create_Response_Schema",
     "Profile_Update_Model_SchemaProfile_Update_Request_Schema",
     "Profile_Update_Response_Schema",
     "User_Profile_Response_Schema",

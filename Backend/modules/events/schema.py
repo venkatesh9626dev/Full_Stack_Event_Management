@@ -220,6 +220,18 @@ class Event_Base_Response_Schema(Event_Base_Schema):
 
 
 class Event_Response_Schema(Event_Base_Schema):
+    category_name : str
+    address_details: Address_Response_Schema = Field(...)
+    ticket_details: Ticket_Response_Schema = Field(...)
+    participant_details: Participant_Schema = Field(...)
+
+    register_state: generic_enum.Registration_Status_Enum = Field(...)
+
+    model_config = ConfigDict(extra="ignore")
+    
+# Here, after update we dont need to send category name while we already have in the client
+    
+class Event_Update_Response_Schema(Event_Base_Schema):
     address_details: Address_Response_Schema = Field(...)
     ticket_details: Ticket_Response_Schema = Field(...)
     participant_details: Participant_Schema = Field(...)
@@ -238,7 +250,9 @@ class Booing_Response_Schema(BaseModel):
     register_state: generic_enum.Registration_Status_Enum
 
 
-class User_Booking_Response_Schema(BaseModel):
+# This is to get the list of users bookings
+
+class User_Bookings_Response_Schema(BaseModel):
     booking_id: str
     event_id: str
     event_name: str
@@ -247,10 +261,16 @@ class User_Booking_Response_Schema(BaseModel):
     event_end_date_time: datetime
     ticket_type: generic_enum.Ticket_Type_Enum
     ticket_fare: Decimal
+    
+# This is the schema after event registration
+    
+class User_Booking_Response_Schema(BaseModel):
+    booking_id : str
+    register_state : generic_enum.Registration_Status_Enum
 
 
 class Event_Bookings_Response_Schema(BaseModel):
     booking_id: str
-    profile_id: int
+    profile_id: str
     first_name: str
     last_name: str

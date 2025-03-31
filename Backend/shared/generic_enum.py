@@ -21,6 +21,10 @@ class Ticket_Type_Enum(str, Enum):
 class Ticket_Status(str, Enum):
     VALID = "valid"
     USED = "used"
+    
+class Gender_Enum(str, Enum):
+    MALE = "male"
+    FEMALE = "female"
 
 
 class Participant_Enum(str, Enum):

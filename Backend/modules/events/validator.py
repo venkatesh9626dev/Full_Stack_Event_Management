@@ -68,7 +68,7 @@ class Creator_Validator_Class:
         )
 
         if event["creator_id"] != creator_id:
-            HTTPException(
+           raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Only event creator can see their participant details",
             )

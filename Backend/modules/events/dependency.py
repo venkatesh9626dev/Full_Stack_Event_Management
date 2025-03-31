@@ -2,14 +2,11 @@ from fastapi import Form
 from datetime import datetime, date
 from typing import Optional
 from utils.cloudinary_util import upload_file
-from fastapi import File, UploadFile
-
+from fastapi import File, UploadFile, HTTPException
+from pydantic import ValidationError
 
 from modules.events.schema import (
     Event_Request_Schema,
-    Address_Schema,
-    Ticket_Schema,
-    Participant_Schema,
     Event_Update_Request_Schema,
 )
 
@@ -39,10 +36,22 @@ def get_create_event_data(
 ) -> Event_Request_Schema:
     """Extracts form data and returns an Event_Request_Schema object"""
 
+
+                            
+
+    allowed_extensions = {"image/jpeg", "image/png", "image/jpg"}
+    
+    if image_file.content_type not in allowed_extensions:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid file type. Only JPG and PNG images are allowed. You uploaded {image_file.content_type}.",
+        )
+
     event_image_url = upload_file(image_file)
 
     # Return Event Schema
-    return Event_Request_Schema(
+    try:
+        return Event_Request_Schema(
         event_name=event_name,
         event_image_url=event_image_url,
         event_description=event_description,
@@ -62,7 +71,8 @@ def get_create_event_data(
         participant_type=participant_type,
         participant_count=participant_count,
     )
-
+    except ValidationError as e:
+        raise HTTPException(status_code=422, detail=e.errors())
 
 def get_update_event_data(
     event_id: str = Form(...),
@@ -71,7 +81,18 @@ def get_update_event_data(
     event_agenda: str = Form(None),
     image_file: UploadFile = File(None),
 ):
-    event_image_url = upload_file(image_file) if image_file else None
+    event_image_url= None
+                            
+    if image_file and image_file.filename:
+        allowed_extensions = {"image/jpeg", "image/png", "image/jpg"}
+        
+        if image_file.content_type not in allowed_extensions:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid file type. Only JPG and PNG images are allowed. You uploaded {image_file.content_type}.",
+            )
+
+        event_image_url = upload_file(image_file)
 
     update_data = {
         "event_id": event_id,
@@ -82,7 +103,10 @@ def get_update_event_data(
     }
 
     filtered_data = {
-        key: value for key, value in update_data.items() if value is not None
+        key: value for key, value in update_data.items() if value is not None and value != ""
     }
 
-    return Event_Update_Request_Schema(**filtered_data)
+    try:
+        return Event_Update_Request_Schema(**filtered_data)
+    except ValidationError as e:
+        raise HTTPException(status_code=422, detail=e.errors())

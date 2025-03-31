@@ -251,7 +251,7 @@ class Event_Bookings_Dao(Base_Dao):
 
     def get_user_bookings_by_event_ids(
         self, attendee_id, event_id_list: list
-    ):  # This is used for searching bookings by event name or event_id
+    ):  # This is used for searching bookings by event_id list
         if not event_id_list:
             return []
         try:

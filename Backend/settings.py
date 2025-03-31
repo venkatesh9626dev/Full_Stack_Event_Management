@@ -13,15 +13,18 @@ class Settings(BaseSettings):
     RAZORPAY_SECRET_KEY: str
     CLOUDINARY_SECRET_KEY: str
     CLOUDINARY_API_KEY: str
+    CIPHER_KEY : str
 
     class Config:
         env_file = ".env"  # Load from .env file
 
 
-key = Fernet.generate_key()
-cipher = Fernet(key)
+
 
 # Create a settings instance
 settings = Settings()
+
+
+cipher = Fernet((settings.CIPHER_KEY).encode())
 
 __all__ = ["settings", "cipher"]

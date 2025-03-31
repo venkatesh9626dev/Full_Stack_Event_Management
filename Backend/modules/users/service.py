@@ -30,7 +30,7 @@ class Authentication_Service:
 
         hash_password = Hashing.hash_data(register_credentials["password"])
 
-        register_credentials.password = hash_password
+        register_credentials["password"] = hash_password
 
         user_binary_id = binaryConversion.str_to_binary(str(uuid4()))
 
@@ -135,10 +135,29 @@ class User_Profile_Service:
         if not user_profile:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="User is profile is not yet created",
+                detail="User profile is not yet created",
             )
 
-        if "merchant_id" in user_profile:
-            user_profile["merchant_id"] = Hashing.hash_data(user_profile["merchant_id"])
+        if user_profile["merchant_id"]:
+        
+            user_profile["merchant_id"] = cipher.decrypt(user_profile["merchant_id"]).decode()
+
+        return user_profile
+
+    @classmethod
+    def get_public_user_profile(cls, binary_profile_id):
+        user_profile = profile_dao.fetch_record(
+            field_name="profile_id", field_value=binary_profile_id
+        )
+
+        if not user_profile:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User profile is not yet created",
+            )
+
+        if user_profile["merchant_id"]:
+        
+            user_profile["merchant_id"] = cipher.decrypt(user_profile["merchant_id"]).decode()
 
         return user_profile

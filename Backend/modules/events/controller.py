@@ -15,7 +15,7 @@ from middlewares.protected_dependency import get_current_user
 events_router = APIRouter()
 
 
-@events_router.post("/", status_code=status.HTTP_201_CREATED)
+@events_router.post("/", status_code=status.HTTP_201_CREATED, response_model=schema.Event_Response_Schema)
 async def create_event(
     user_binary_id: bytes = Depends(get_current_user),
     event_data: schema.Event_Request_Schema = Depends(get_create_event_data),
@@ -27,7 +27,7 @@ async def create_event(
     return schema.Event_Response_Schema(**event_create_response)
 
 
-@events_router.put("/")
+@events_router.put("/", status_code=status.HTTP_200_OK, response_model=schema.Event_Update_Response_Schema)
 async def update_event_details(
     user_binary_id: bytes = Depends(get_current_user),
     update_data: schema.Event_Update_Request_Schema = Depends(get_update_event_data),
@@ -36,10 +36,10 @@ async def update_event_details(
         update_data=update_data.model_dump(), creator_id=user_binary_id
     )
 
-    return schema.Event_Response_Schema(**updated_data)
+    return schema.Event_Update_Response_Schema(**updated_data)
 
 
-@events_router.patch("/")
+@events_router.patch("/", status_code=status.HTTP_200_OK, response_model=schema.Event_Update_Response_Schema)
 async def update_event_detail(
     user_binary_id: bytes = Depends(get_current_user),
     update_data: schema.Event_Update_Request_Schema = Depends(get_update_event_data),
@@ -48,10 +48,10 @@ async def update_event_detail(
         update_data=update_data.model_dump(), creator_id=user_binary_id
     )
 
-    return schema.Event_Response_Schema(**updated_data)
+    return schema.Event_Update_Response_Schema(**updated_data)
 
 
-@events_router.get("/", response_model=List[schema.Event_Base_Response_Schema])
+@events_router.get("/", status_code=status.HTTP_200_OK, response_model=List[schema.Event_Base_Response_Schema])
 async def get_events():
     events_list = events_service.get_events_list()
 
@@ -61,12 +61,7 @@ async def get_events():
     return []
 
 
-@events_router.get("/search")
-async def search_events(user_binary_id: bytes = Depends(get_current_user)):
-    pass
-
-
-@events_router.get("/created", response_model=List[schema.Event_Base_Response_Schema])
+@events_router.get("/created", status_code=status.HTTP_200_OK, response_model=List[schema.Event_Base_Response_Schema])
 async def get_created_events(
     user_binary_id: bytes = Depends(get_current_user),
 ):
@@ -80,7 +75,7 @@ async def get_created_events(
     return []
 
 
-@events_router.post("/register", response_model=schema.User_Booking_Response_Schema)
+@events_router.post("/register",status_code=status.HTTP_201_CREATED, response_model=schema.User_Booking_Response_Schema)
 def register_attendee(
     event_data: schema.Booking_Request_Schema,
     user_id: bytes = Depends(get_current_user),
@@ -96,7 +91,7 @@ def register_attendee(
     return schema.User_Booking_Response_Schema(**attendee_details)
 
 
-@events_router.get("/booked", response_model=List[schema.User_Booking_Response_Schema])
+@events_router.get("/booked", status_code=status.HTTP_200_OK, response_model=List[schema.User_Bookings_Response_Schema])
 async def get_booked_events(
     user_binary_id: bytes = Depends(get_current_user),
 ):
@@ -104,13 +99,13 @@ async def get_booked_events(
 
     if bookings_list:
         return [
-            schema.User_Booking_Response_Schema(**booking) for booking in bookings_list
+            schema.User_Bookings_Response_Schema(**booking) for booking in bookings_list
         ]
 
     return []
 
 
-@events_router.get("/category")
+@events_router.get("/category",status_code=status.HTTP_200_OK )
 async def get_categories():
     category_list = category_service.get_categories()
 
@@ -132,7 +127,7 @@ def create_category(
 
 
 @events_router.get(
-    "/category/{category_id}", response_model=List[schema.Event_Base_Response_Schema]
+    "/category/{category_id}",status_code=status.HTTP_200_OK, response_model=List[schema.Event_Base_Response_Schema]
 )
 async def get_events_by_category(
     category_id: int,
@@ -145,7 +140,7 @@ async def get_events_by_category(
     return []
 
 
-@events_router.get("/{event_id}", response_model=schema.Event_Response_Schema)
+@events_router.get("/{event_id}",status_code=status.HTTP_200_OK, response_model=schema.Event_Response_Schema)
 async def get_event_by_id(
     event_id: str, user_binary_id: bytes = Depends(get_current_user)
 ):
@@ -158,10 +153,17 @@ async def get_event_by_id(
     return schema.Event_Response_Schema(**event_data)
 
 
-@events_router.get("/{event_id}/bookings")
+@events_router.get("/{event_id}/bookings",status_code=status.HTTP_200_OK,response_model=List[schema.Event_Bookings_Response_Schema])
 def get_event_bookings(event_id: str, creator_id: bytes = Depends(get_current_user)):
+    
+    event_id = binaryConversion.str_to_binary(event_id)
+    
     event_bookings = bookings_service.get_event_booking_data(
         event_id=event_id, creator_id=creator_id
     )
+    
+    if not event_bookings:
+        return []
+    
 
-    return schema.User_Bookings_Response_Schema(bookings_list=event_bookings)
+    return [schema.Event_Bookings_Response_Schema(**booking_data) for booking_data in event_bookings]
